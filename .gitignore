@@ -1,0 +1,23 @@
+# --- Python / Backend ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Base de datos local de desarrollo (los datos no se versionan)
+backend/instance/*.sqlite
+
+# Variables de entorno locales
+.env
+.env.local
+
+# --- Node / Frontend ---
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+*.tsbuildinfo
+
+# --- Varios ---
+.DS_Store
+*.log
