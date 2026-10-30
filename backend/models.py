@@ -39,6 +39,9 @@ class Documento(db.Model):
     subtotal = db.Column(db.Float, nullable=False)
     total_iva = db.Column(db.Float, nullable=False)
     total_general = db.Column(db.Float, nullable=False)
+
+    # Descripción breve del trabajo (opcional, la escribe el cliente)
+    descripcion_trabajo = db.Column(db.Text, nullable=True)
     
     # Relación con las líneas (partidas), siempre en el orden en que se crearon
     lineas = db.relationship(
@@ -56,6 +59,7 @@ class Documento(db.Model):
             "numero": self.numero,
             "fecha": self.fecha,
             "cliente": self.cliente.to_dict() if self.cliente else None,
+            "descripcion_trabajo": self.descripcion_trabajo,
             "subtotal": self.subtotal,
             "total_iva": self.total_iva,
             "total_general": self.total_general,

@@ -1,27 +1,193 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Paleta de obra: cemento (mortero), cal, y el carbón/oro del logo */
+@theme {
+  --color-cemento: #e6e7e1;
+  --color-cemento-hondo: #dbddd4;
+  --color-cal: #fcfcfa;
+  --color-carbon: #0f1113;
+  --color-carbon-claro: #1e2226;
+  --color-oro: #d9963a;
+  --color-oro-oscuro: #b87b26;
+  --color-oro-claro: #f0c378;
+  --color-albanil: #6b6e67;
+  --color-albanil-claro: #9a9d93;
+  --color-linea: #d5d7cf;
+  --color-senal: #b42318;
 }
 
+/* La familia la carga next/font (variable --font-archivo en <html>) */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  --background: var(--color-cemento);
+  --foreground: var(--color-carbon);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  /* Usa las tipografías Geist cargadas en layout.tsx (antes se ignoraban) */
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-archivo), Arial, Helvetica, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+
+  /* Móvil */
+  -webkit-text-size-adjust: 100%; /* iOS no debe ampliar el texto al rotar */
+  -webkit-tap-highlight-color: transparent; /* sin destello azul al tocar */
+  padding-bottom: env(safe-area-inset-bottom, 0px); /* safe area en PWA */
+}
+
+::selection {
+  background: var(--color-oro-claro);
+  color: var(--color-carbon);
+}
+
+/* Foco visible y consistente en toda la app (teclado) */
+:focus-visible {
+  outline: 2px solid var(--color-oro-oscuro);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@layer components {
+  /* Hoja: el panel base sobre el fondo de cemento (sin sombras gordas) */
+  .hoja {
+    background: var(--color-cal);
+    border: 1px solid var(--color-linea);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgb(15 17 19 / 0.05);
+  }
+
+  /* Título de sección con la misma barra oro que el PDF */
+  .seccion-titulo {
+    border-left: 3px solid var(--color-oro);
+    padding-left: 0.65rem;
+    font-size: 1.0625rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--color-carbon);
+  }
+
+  .etiqueta-campo {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: #4b4e48;
+    margin-bottom: 0.3rem;
+  }
+
+  /* Campo de texto: 16px evita el zoom automático en iOS */
+  .campo {
+    width: 100%;
+    display: block;
+    padding: 0.6rem 0.75rem;
+    font-size: 1rem;
+    line-height: 1.4rem;
+    color: var(--color-carbon);
+    background: #fff;
+    border: 1px solid var(--color-linea);
+    border-radius: 8px;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .campo::placeholder {
+    color: var(--color-albanil-claro);
+  }
+  .campo:focus {
+    border-color: var(--color-oro);
+    box-shadow: 0 0 0 3px rgb(217 150 58 / 0.25);
+  }
+  .campo[readonly] {
+    background: var(--color-cemento);
+    color: var(--color-albanil);
+  }
+
+  .campo-tabla {
+    padding: 0.4rem 0.5rem;
+    border-radius: 6px;
+  }
+
+  /* Botones: oro = acción primaria, carbón = acción secundaria */
+  .boton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0.6rem 1.15rem;
+    border-radius: 8px;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.2;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+  .boton:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .boton-oro {
+    background: var(--color-oro);
+    color: var(--color-carbon);
+  }
+  .boton-oro:hover:not(:disabled) {
+    background: var(--color-oro-oscuro);
+  }
+
+  .boton-carbon {
+    background: var(--color-carbon);
+    color: #f2efe8;
+  }
+  .boton-carbon:hover:not(:disabled) {
+    background: var(--color-carbon-claro);
+  }
+
+  .boton-hueco {
+    background: transparent;
+    border: 1px solid var(--color-linea);
+    color: #3a3d38;
+  }
+  .boton-hueco:hover:not(:disabled) {
+    background: var(--color-cemento-hondo);
+    border-color: var(--color-albanil-claro);
+  }
+
+  .boton-chico {
+    min-height: 2.5rem;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.875rem;
+  }
+
+  .boton-peligro {
+    background: var(--color-senal);
+    color: #fff;
+  }
+  .boton-peligro:hover:not(:disabled) {
+    background: #96190f;
+  }
+
+  /* Cifras alineadas: importes, cantidades, números de documento */
+  .cifras {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Cabecera de tabla: la misma que la tabla del PDF */
+  .cabecera-tabla {
+    background: var(--color-carbon);
+    color: var(--color-oro-claro);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
 }
