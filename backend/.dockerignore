@@ -1,0 +1,11 @@
+# Ignorado en el contexto de build del backend (Docker lo lee automáticamente)
+__pycache__/
+*.py[cod]
+.pytest_cache/
+tests/
+.env
+.env.local
+instance/
+.venv/
+venv/
+Dockerfile

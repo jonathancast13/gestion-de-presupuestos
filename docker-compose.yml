@@ -1,0 +1,49 @@
+# Entorno de DESARROLLO con recarga automática en ambos servicios.
+#   docker compose up
+#   Frontend: http://localhost:3000   Backend: http://localhost:5000
+#
+# La base de datos SQLite vive en backend/instance/ (montada en el contenedor),
+# así que los datos persisten en tu equipo y son ignorados por git.
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    environment:
+      FLASK_APP: app.py
+      FLASK_DEBUG: "1"
+      # Añade aquí el origen del móvil si accedes desde un teléfono (ver README)
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+    env_file:
+      # Opcional: si no existe, configura SECRET_KEY/ADMIN_PASSWORD_HASH abajo
+      - path: ./backend/.env
+        required: false
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      # El navegador del usuario debe poder alcanzar el backend:
+      # en local funciona localhost; desde el móvil, la IP de la máquina (ver README)
+      NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL:-http://localhost:5000}
+      NEXT_TELEMETRY_DISABLED: "1"
+    env_file:
+      - path: ./frontend/.env.local
+        required: false
+    volumes:
+      - ./frontend:/app
+      # Copia inicial de la imagen: evita que el node_modules del host (Windows)
+      # tape al del contenedor (Linux) y no rompe .next entre SO
+      - /app/node_modules
+      - frontend_next:/app/.next
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  frontend_next:

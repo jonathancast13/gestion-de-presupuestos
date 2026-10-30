@@ -24,4 +24,9 @@ body {
   color: var(--foreground);
   /* Usa las tipografías Geist cargadas en layout.tsx (antes se ignoraban) */
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+
+  /* Móvil */
+  -webkit-text-size-adjust: 100%; /* iOS no debe ampliar el texto al rotar */
+  -webkit-tap-highlight-color: transparent; /* sin destello azul al tocar */
+  padding-bottom: env(safe-area-inset-bottom, 0px); /* safe area en PWA */
 }

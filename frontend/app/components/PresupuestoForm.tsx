@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FileText, History, Plus, Send, Trash2 } from "lucide-react";
+import BotonSalir from "./BotonSalir";
 import DescargaPDFButton from "./DescargaPDFButton";
+import { useToast } from "./Toast";
 import { actualizarDocumento, crearDocumento, obtenerDocumento, obtenerProximoNumero } from "@/lib/api";
 import { calcularTotales, formatearEuros, subtotalDeLinea } from "@/lib/dinero";
 import type { ClienteData, DocumentoPayload, ItemLinea, TipoDocumento } from "@/types";
@@ -23,9 +25,14 @@ function lineaVacia(): ItemLinea {
   return { id: siguienteIdLinea(), descripcion: "", cantidad: 1, precioUnitario: 0, iva: 21 };
 }
 
+// Clase común de los inputs (text-base evita el zoom automático de iOS)
+const CLASE_INPUT =
+  "w-full p-2.5 border rounded-lg text-base outline-none focus:ring-2 focus:ring-blue-500";
+
 export default function PresupuestoForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const toast = useToast();
   const editId = searchParams.get("editar");
   const idEditando = editId ? Number(editId) : null;
   const esEdicion = idEditando !== null && Number.isInteger(idEditando) && idEditando > 0;
@@ -82,14 +89,14 @@ export default function PresupuestoForm() {
       })
       .catch((error) => {
         if (cancelado) return;
-        alert(error instanceof Error ? error.message : "No se pudo cargar el documento.");
+        toast.error(error instanceof Error ? error.message : "No se pudo cargar el documento.");
         router.push("/historial");
       });
 
     return () => {
       cancelado = true;
     };
-  }, [esEdicion, idEditando, router]);
+  }, [esEdicion, idEditando, router, toast]);
 
   // En modo creación el backend propone el siguiente número (PRE-2026-001...)
   useEffect(() => {
@@ -140,17 +147,17 @@ export default function PresupuestoForm() {
     if (guardando || cargandoDocumento) return;
 
     if (!cliente.nombre.trim()) {
-      alert("Introduce el nombre del cliente.");
+      toast.error("Introduce el nombre del cliente.");
       return;
     }
     const sinDescripcion = items.findIndex((item) => !item.descripcion.trim());
     if (sinDescripcion >= 0) {
-      alert(`La partida ${sinDescripcion + 1} necesita una descripción.`);
+      toast.error(`La partida ${sinDescripcion + 1} necesita una descripción.`);
       return;
     }
     const sinCantidad = items.findIndex((item) => !(item.cantidad > 0));
     if (sinCantidad >= 0) {
-      alert(`La partida ${sinCantidad + 1} necesita una cantidad mayor que 0.`);
+      toast.error(`La partida ${sinCantidad + 1} necesita una cantidad mayor que 0.`);
       return;
     }
 
@@ -174,14 +181,14 @@ export default function PresupuestoForm() {
           ? await actualizarDocumento(idEditando, payload)
           : await crearDocumento(payload);
 
-      alert(
+      toast.exito(
         esEdicion
-          ? `¡Documento ${guardado.numero} actualizado con éxito!`
-          : `¡Documento guardado con éxito! Número asignado: ${guardado.numero}`
+          ? `Documento ${guardado.numero} actualizado con éxito.`
+          : `Documento guardado con éxito. Número asignado: ${guardado.numero}`
       );
       router.push("/historial");
     } catch (error) {
-      alert(error instanceof Error ? error.message : "No se pudo guardar el documento.");
+      toast.error(error instanceof Error ? error.message : "No se pudo guardar el documento.");
     } finally {
       setGuardando(false);
     }
@@ -191,7 +198,7 @@ export default function PresupuestoForm() {
   const enviarWhatsApp = () => {
     const telefono = cliente.telefono.replace(/\D/g, "");
     if (!telefono) {
-      alert("Introduce el teléfono del cliente para enviar por WhatsApp.");
+      toast.error("Introduce el teléfono del cliente para enviar por WhatsApp.");
       return;
     }
     const texto = `Hola ${cliente.nombre || "Cliente"}, le adjunto el ${tipoDoc} (${numeroDoc}) por un importe total de ${formatearEuros(total)}. Cualquier duda me comenta. ¡Un saludo!`;
@@ -199,18 +206,18 @@ export default function PresupuestoForm() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white shadow-lg rounded-xl my-8 border border-gray-100">
-      <div className="flex justify-between items-center border-b pb-4 mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          <FileText className="text-blue-600" />
+    <div className="max-w-4xl mx-auto p-4 sm:p-6 bg-white shadow-lg rounded-xl my-4 sm:my-8 border border-gray-100">
+      <div className="flex flex-col gap-4 border-b pb-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2 sm:text-2xl">
+          <FileText className="text-blue-600 shrink-0" />
           {esEdicion ? `Editando ${numeroDoc || `documento #${idEditando}`}` : "Generador de Documentos"}
           {cargandoDocumento && <span className="text-sm font-normal text-gray-400">(cargando...)</span>}
         </h1>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <Link
             href="/historial"
-            className="flex items-center gap-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg font-medium transition-colors"
+            className="flex items-center gap-1.5 min-h-10 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg font-medium transition-colors"
           >
             <History size={16} /> Ver Historial
           </Link>
@@ -219,7 +226,7 @@ export default function PresupuestoForm() {
             <button
               type="button"
               onClick={() => setTipoDoc("presupuesto")}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+              className={`min-h-10 px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
                 tipoDoc === "presupuesto"
                   ? "bg-blue-600 text-white"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -230,7 +237,7 @@ export default function PresupuestoForm() {
             <button
               type="button"
               onClick={() => setTipoDoc("factura")}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+              className={`min-h-10 px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
                 tipoDoc === "factura"
                   ? "bg-blue-600 text-white"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -239,6 +246,8 @@ export default function PresupuestoForm() {
               Factura
             </button>
           </div>
+
+          <BotonSalir />
         </div>
       </div>
 
@@ -254,7 +263,7 @@ export default function PresupuestoForm() {
               readOnly={!esEdicion}
               placeholder="PRE-2026-001"
               onChange={(e) => setNumeroDoc(e.target.value)}
-              className="mt-1 w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none read-only:bg-gray-50 read-only:text-gray-500"
+              className={`mt-1 ${CLASE_INPUT} read-only:bg-gray-50 read-only:text-gray-500`}
             />
             {!esEdicion && (
               <p className="text-xs text-gray-400 mt-1">Se asigna automáticamente al guardar.</p>
@@ -266,7 +275,7 @@ export default function PresupuestoForm() {
               type="date"
               value={fecha}
               onChange={(e) => setFecha(e.target.value)}
-              className="mt-1 w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              className={`mt-1 ${CLASE_INPUT}`}
             />
           </div>
         </div>
@@ -280,10 +289,10 @@ export default function PresupuestoForm() {
               placeholder="Ej. Juan Pérez"
               value={cliente.nombre}
               onChange={(e) => setCliente({ ...cliente, nombre: e.target.value })}
-              className="mt-1 w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              className={`mt-1 ${CLASE_INPUT}`}
             />
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-gray-600">NIF / CIF</label>
               <input
@@ -291,17 +300,18 @@ export default function PresupuestoForm() {
                 placeholder="12345678X"
                 value={cliente.nif}
                 onChange={(e) => setCliente({ ...cliente, nif: e.target.value })}
-                className="mt-1 w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                className={`mt-1 ${CLASE_INPUT}`}
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-600">Teléfono (WhatsApp)</label>
               <input
-                type="text"
+                type="tel"
+                inputMode="tel"
                 placeholder="34600000000"
                 value={cliente.telefono}
                 onChange={(e) => setCliente({ ...cliente, telefono: e.target.value })}
-                className="mt-1 w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                className={`mt-1 ${CLASE_INPUT}`}
               />
             </div>
           </div>
@@ -312,7 +322,7 @@ export default function PresupuestoForm() {
               placeholder="Calle, número, ciudad"
               value={cliente.direccion}
               onChange={(e) => setCliente({ ...cliente, direccion: e.target.value })}
-              className="mt-1 w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              className={`mt-1 ${CLASE_INPUT}`}
             />
           </div>
         </div>
@@ -321,7 +331,85 @@ export default function PresupuestoForm() {
       {/* Líneas de partidas */}
       <div className="mb-6">
         <h2 className="text-lg font-semibold text-gray-700 mb-2">Partidas de la Reforma</h2>
-        <div className="border rounded-lg overflow-hidden">
+
+        {/* Móvil: tarjetas con campos apilados */}
+        <ul className="space-y-3 sm:hidden">
+          {items.map((item) => (
+            <li key={item.id} className="border rounded-lg p-3 bg-gray-50/60">
+              <div className="flex items-start gap-2">
+                <label className="flex-1 min-w-0">
+                  <span className="block text-xs font-medium text-gray-500">Descripción</span>
+                  <input
+                    type="text"
+                    placeholder="Trabajo o material..."
+                    value={item.descripcion}
+                    onChange={(e) => actualizarLinea(item.id, "descripcion", e.target.value)}
+                    className={`mt-1 ${CLASE_INPUT}`}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => eliminarLinea(item.id)}
+                  aria-label={`Eliminar partida ${item.descripcion || ""}`}
+                  className="mt-5 shrink-0 text-red-500 hover:text-red-700 p-2.5 rounded-lg border bg-white min-h-11 min-w-11 flex items-center justify-center"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <label>
+                  <span className="block text-xs font-medium text-gray-500">Cantidad</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="1"
+                    value={item.cantidad}
+                    onChange={(e) => actualizarLinea(item.id, "cantidad", Number(e.target.value))}
+                    className={`mt-1 ${CLASE_INPUT}`}
+                  />
+                </label>
+                <label>
+                  <span className="block text-xs font-medium text-gray-500">Precio (€)</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    value={item.precioUnitario}
+                    onChange={(e) => actualizarLinea(item.id, "precioUnitario", Number(e.target.value))}
+                    className={`mt-1 ${CLASE_INPUT}`}
+                  />
+                </label>
+              </div>
+
+              <div className="mt-2 grid grid-cols-2 gap-2 items-end">
+                <label>
+                  <span className="block text-xs font-medium text-gray-500">IVA (%)</span>
+                  <select
+                    value={item.iva}
+                    onChange={(e) => actualizarLinea(item.id, "iva", Number(e.target.value))}
+                    className={`mt-1 ${CLASE_INPUT} bg-white`}
+                  >
+                    <option value={21}>21%</option>
+                    <option value={10}>10%</option>
+                    <option value={4}>4%</option>
+                    <option value={0}>0%</option>
+                  </select>
+                </label>
+                <p className="flex items-center justify-between sm:justify-start gap-2 pb-2.5 text-sm">
+                  <span className="text-gray-500">Subtotal:</span>
+                  <span className="font-semibold text-gray-800">
+                    {formatearEuros(subtotalDeLinea(item))}
+                  </span>
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+
+        {/* Tablet y escritorio: tabla */}
+        <div className="hidden border rounded-lg overflow-hidden sm:block">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50 border-b text-sm text-gray-600">
@@ -342,33 +430,35 @@ export default function PresupuestoForm() {
                       placeholder="Descripción del trabajo o material..."
                       value={item.descripcion}
                       onChange={(e) => actualizarLinea(item.id, "descripcion", e.target.value)}
-                      className="w-full p-1.5 border rounded outline-none focus:border-blue-500"
+                      className={`${CLASE_INPUT} p-1.5`}
                     />
                   </td>
                   <td className="p-2">
                     <input
                       type="number"
+                      inputMode="decimal"
                       min="1"
                       value={item.cantidad}
                       onChange={(e) => actualizarLinea(item.id, "cantidad", Number(e.target.value))}
-                      className="w-full p-1.5 border rounded outline-none focus:border-blue-500"
+                      className={`${CLASE_INPUT} p-1.5`}
                     />
                   </td>
                   <td className="p-2">
                     <input
                       type="number"
+                      inputMode="decimal"
                       step="0.01"
                       min="0"
                       value={item.precioUnitario}
                       onChange={(e) => actualizarLinea(item.id, "precioUnitario", Number(e.target.value))}
-                      className="w-full p-1.5 border rounded outline-none focus:border-blue-500"
+                      className={`${CLASE_INPUT} p-1.5`}
                     />
                   </td>
                   <td className="p-2">
                     <select
                       value={item.iva}
                       onChange={(e) => actualizarLinea(item.id, "iva", Number(e.target.value))}
-                      className="w-full p-1.5 border rounded outline-none focus:border-blue-500 bg-white"
+                      className={`${CLASE_INPUT} p-1.5 bg-white`}
                     >
                       <option value={21}>21%</option>
                       <option value={10}>10%</option>
@@ -382,7 +472,7 @@ export default function PresupuestoForm() {
                       type="button"
                       onClick={() => eliminarLinea(item.id)}
                       aria-label={`Eliminar partida ${item.descripcion || ""}`}
-                      className="text-red-500 hover:text-red-700 p-1"
+                      className="text-red-500 hover:text-red-700 p-1.5"
                     >
                       <Trash2 size={18} />
                     </button>
@@ -392,18 +482,19 @@ export default function PresupuestoForm() {
             </tbody>
           </table>
         </div>
+
         <button
           type="button"
           onClick={agregarLinea}
-          className="mt-3 flex items-center gap-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg font-medium transition-colors"
+          className="mt-3 flex items-center gap-1 min-h-10 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg font-medium transition-colors"
         >
           <Plus size={16} /> Añadir partida
         </button>
       </div>
 
       {/* Totales */}
-      <div className="flex justify-end mb-8">
-        <div className="w-64 space-y-2 bg-gray-50 p-4 rounded-lg border">
+      <div className="flex justify-end mb-6 sm:mb-8">
+        <div className="w-full space-y-2 bg-gray-50 p-4 rounded-lg border sm:w-64">
           <div className="flex justify-between text-sm text-gray-600">
             <span>Base Imponible:</span>
             <span>{formatearEuros(subtotal)}</span>
@@ -420,12 +511,12 @@ export default function PresupuestoForm() {
       </div>
 
       {/* Botones de acción */}
-      <div className="flex flex-wrap gap-4 justify-end border-t pt-4">
+      <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-4">
         <button
           type="button"
           onClick={guardarEnBackend}
           disabled={guardando || cargandoDocumento}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50"
+          className="flex items-center justify-center gap-2 min-h-11 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50"
         >
           {guardando
             ? "Guardando..."
@@ -447,7 +538,7 @@ export default function PresupuestoForm() {
         <button
           type="button"
           onClick={enviarWhatsApp}
-          className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-medium transition-colors"
+          className="flex items-center justify-center gap-2 min-h-11 bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-medium transition-colors"
         >
           <Send size={18} /> Enviar por WhatsApp
         </button>

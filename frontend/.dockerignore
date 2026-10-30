@@ -1,0 +1,9 @@
+# Ignorado en el contexto de build del frontend (Docker lo lee automáticamente)
+node_modules/
+.next/
+.env.local
+out/
+build/
+*.tsbuildinfo
+npm-debug.log*
+Dockerfile
