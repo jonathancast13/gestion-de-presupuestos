@@ -41,6 +41,7 @@ export default function PresupuestoForm() {
   const [tipoDoc, setTipoDoc] = useState<TipoDocumento>("presupuesto");
   const [numeroDoc, setNumeroDoc] = useState("");
   const [fecha, setFecha] = useState(FECHA_INICIAL);
+  const [descripcionTrabajo, setDescripcionTrabajo] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [cargandoDocumento, setCargandoDocumento] = useState(esEdicion);
 
@@ -66,6 +67,7 @@ export default function PresupuestoForm() {
         setTipoDoc(documento.tipo);
         setNumeroDoc(documento.numero);
         setFecha(documento.fecha);
+        setDescripcionTrabajo(documento.descripcion_trabajo ?? "");
         if (documento.cliente) {
           setCliente({
             nombre: documento.cliente.nombre ?? "",
@@ -166,6 +168,7 @@ export default function PresupuestoForm() {
       numero: numeroDoc,
       fecha,
       cliente,
+      descripcion_trabajo: descripcionTrabajo,
       items: items.map(({ descripcion, cantidad, precioUnitario, iva }) => ({
         descripcion,
         cantidad,
@@ -277,6 +280,21 @@ export default function PresupuestoForm() {
               onChange={(e) => setFecha(e.target.value)}
               className={`mt-1 ${CLASE_INPUT}`}
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-600">
+              Descripción del trabajo{" "}
+              <span className="font-normal text-gray-400">(opcional)</span>
+            </label>
+            <textarea
+              value={descripcionTrabajo}
+              onChange={(e) => setDescripcionTrabajo(e.target.value)}
+              maxLength={500}
+              rows={4}
+              placeholder="Breve descripción del trabajo a realizar..."
+              className={`mt-1 ${CLASE_INPUT} resize-y`}
+            />
+            <p className="text-xs text-gray-400 mt-1 text-right">{descripcionTrabajo.length}/500</p>
           </div>
         </div>
 
@@ -532,6 +550,7 @@ export default function PresupuestoForm() {
           numeroDoc={numeroDoc}
           fecha={fecha}
           cliente={cliente}
+          descripcionTrabajo={descripcionTrabajo}
           items={items}
         />
 

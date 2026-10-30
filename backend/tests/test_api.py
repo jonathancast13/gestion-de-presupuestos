@@ -209,6 +209,52 @@ def test_documentos_inexistentes_devuelven_404(client):
 
 
 # ---------------------------------------------------------------------------
+# Descripción del trabajo (opcional)
+# ---------------------------------------------------------------------------
+
+def test_crear_sin_descripcion_trabajo_devuelve_null(client):
+    datos = crear(client)
+    assert datos['descripcion_trabajo'] is None
+
+
+def test_crear_con_descripcion_trabajo(client):
+    datos = crear(client, descripcion_trabajo='  Reforma completa del baño  ')
+    assert datos['descripcion_trabajo'] == 'Reforma completa del baño'
+
+
+def test_descripcion_vacia_en_post_se_guarda_como_null(client):
+    datos = crear(client, descripcion_trabajo='   ')
+    assert datos['descripcion_trabajo'] is None
+
+
+def test_descripcion_demasiado_larga_rechazada(client):
+    r = client.post('/api/documentos', json=payload(descripcion_trabajo='x' * 501))
+    assert r.status_code == 400
+    assert '500' in r.get_json()['error']
+
+
+def test_actualizar_descripcion_trabajo(client):
+    creado = crear(client)
+    r = client.put(f"/api/documentos/{creado['id']}", json={'descripcion_trabajo': 'Nueva descripción'})
+    assert r.status_code == 200
+    assert r.get_json()['descripcion_trabajo'] == 'Nueva descripción'
+
+
+def test_actualizar_sin_clave_conserva_la_descripcion(client):
+    creado = crear(client, descripcion_trabajo='Texto original')
+    r = client.put(f"/api/documentos/{creado['id']}", json={'fecha': '2026-08-01'})
+    assert r.status_code == 200
+    assert r.get_json()['descripcion_trabajo'] == 'Texto original'
+
+
+def test_descripcion_vacia_en_put_la_borra(client):
+    creado = crear(client, descripcion_trabajo='Texto a borrar')
+    r = client.put(f"/api/documentos/{creado['id']}", json={'descripcion_trabajo': ''})
+    assert r.status_code == 200
+    assert r.get_json()['descripcion_trabajo'] is None
+
+
+# ---------------------------------------------------------------------------
 # Edición
 # ---------------------------------------------------------------------------
 

@@ -34,6 +34,7 @@ export interface Documento {
   numero: string;
   fecha: string;
   cliente: ClienteData | null;
+  descripcion_trabajo: string | null;
   subtotal: number;
   total_iva: number;
   total_general: number;
@@ -47,5 +48,7 @@ export interface DocumentoPayload {
   numero?: string;
   fecha: string;
   cliente: ClienteData;
+  // Opcional: ausente en PUT => conservar; cadena vacía => borrar
+  descripcion_trabajo?: string;
   items: LineaEditable[];
 }

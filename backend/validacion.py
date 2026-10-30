@@ -19,6 +19,8 @@ FORMATO_FECHA = '%Y-%m-%d'
 # Números generados automáticamente, ej: PRE-2026-001
 PATRON_NUMERO_AUTO = re.compile(r'^(PRE|FAC)-\d{4}-\d{3,}$')
 MAX_INTENTOS_GUARDADO = 3
+# Descripción breve del trabajo escrita por el cliente (opcional)
+MAX_DESCRIPCION_TRABAJO = 500
 
 
 class ErrorValidacion(Exception):
@@ -62,6 +64,25 @@ def leer_fecha(data, por_defecto=None):
     except ValueError:
         raise ErrorValidacion('La fecha debe tener formato AAAA-MM-DD.')
     return fecha
+
+
+def leer_descripcion_trabajo(data):
+    """Descripción breve del trabajo, opcional.
+
+    Devuelve None si la clave no viene (en PUT el valor se conserva) y la
+    cadena limpia si viene: una cadena vacía significa borrar el campo.
+    """
+    if 'descripcion_trabajo' not in data:
+        return None
+    valor = data.get('descripcion_trabajo')
+    if valor is None:
+        return None
+    texto = str(valor).strip()
+    if len(texto) > MAX_DESCRIPCION_TRABAJO:
+        raise ErrorValidacion(
+            f'La descripción del trabajo no puede superar los {MAX_DESCRIPCION_TRABAJO} caracteres.'
+        )
+    return texto
 
 
 def leer_cliente(data, obligatorio=True):

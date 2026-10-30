@@ -10,6 +10,7 @@ interface Props {
   numeroDoc: string;
   fecha: string;
   cliente: ClienteData;
+  descripcionTrabajo?: string;
   items: ItemLinea[];
 }
 

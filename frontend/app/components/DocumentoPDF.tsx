@@ -116,6 +116,7 @@ const styles = StyleSheet.create({
   },
   filaCliente: { marginBottom: 2 },
   etiqueta: { fontWeight: "bold", color: COLORES.carbon },
+  textoDescripcion: { fontSize: 9.5, lineHeight: 1.45, color: COLORES.texto },
 
   // --- Tabla de partidas --------------------------------------------------
   tabla: { width: "100%", marginBottom: 4 },
@@ -189,10 +190,18 @@ interface DocumentoPDFProps {
   numeroDoc: string;
   fecha: string;
   cliente: ClienteData;
+  descripcionTrabajo?: string;
   items: ItemLinea[];
 }
 
-export default function DocumentoPDF({ tipoDoc, numeroDoc, fecha, cliente, items }: DocumentoPDFProps) {
+export default function DocumentoPDF({
+  tipoDoc,
+  numeroDoc,
+  fecha,
+  cliente,
+  descripcionTrabajo,
+  items,
+}: DocumentoPDFProps) {
   // Los mismos cálculos que el formulario y el backend
   const { subtotal, total, totalIva } = calcularTotales(items);
   const desglose = desgloseIva(items);
@@ -247,6 +256,17 @@ export default function DocumentoPDF({ tipoDoc, numeroDoc, fecha, cliente, items
             </Text>
           </View>
         </View>
+
+        {/* Descripción del trabajo (opcional): solo si hay texto */}
+        {descripcionTrabajo?.trim() && (
+          <View style={styles.seccionCliente}>
+            <View style={styles.seccionBarra} />
+            <View style={styles.seccionCuerpo}>
+              <Text style={styles.seccionTitulo}>Descripción del trabajo</Text>
+              <Text style={styles.textoDescripcion}>{descripcionTrabajo.trim()}</Text>
+            </View>
+          </View>
+        )}
 
         {/* Tabla de partidas (las filas continúan en páginas siguientes) */}
         <View style={styles.tabla}>

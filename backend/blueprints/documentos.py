@@ -17,6 +17,7 @@ from validacion import (
     generar_siguiente_numero,
     guardar_cliente,
     leer_cliente,
+    leer_descripcion_trabajo,
     leer_fecha,
     leer_tipo,
     numero_disponible,
@@ -43,6 +44,7 @@ def guardar_documento():
     tipo = leer_tipo(data)
     fecha = leer_fecha(data)
     datos_cliente = leer_cliente(data)
+    descripcion_trabajo = leer_descripcion_trabajo(data) or None
     lineas = validar_items(data)
     subtotal, total_iva, total_general = calcular_totales(lineas)
 
@@ -55,6 +57,7 @@ def guardar_documento():
                 numero=generar_siguiente_numero(tipo),
                 fecha=fecha,
                 cliente_id=cliente.id,
+                descripcion_trabajo=descripcion_trabajo,
                 subtotal=subtotal,
                 total_iva=total_iva,
                 total_general=total_general,
@@ -126,6 +129,11 @@ def actualizar_documento(id):
     documento.tipo = tipo
     documento.numero = numero
     documento.fecha = fecha
+
+    # Descripción del trabajo: solo se toca si viene la clave en la petición
+    # (una cadena vacía la borra)
+    if 'descripcion_trabajo' in data:
+        documento.descripcion_trabajo = leer_descripcion_trabajo(data) or None
 
     datos_cliente = leer_cliente(data, obligatorio=False)
     if datos_cliente:
