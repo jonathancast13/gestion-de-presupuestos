@@ -1,17 +1,15 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Archivo } from "next/font/google";
 import AuthGuard from "./components/AuthGuard";
 import ToastProvider from "./components/Toast";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Grotesca de señalética técnica: una sola familia para toda la app,
+// la jerarquía se construye con peso y tamaño (ver globals.css)
+const archivo = Archivo({
+  variable: "--font-archivo",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -32,10 +30,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="es"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="es" className={`${archivo.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         <ToastProvider>
           <AuthGuard>{children}</AuthGuard>

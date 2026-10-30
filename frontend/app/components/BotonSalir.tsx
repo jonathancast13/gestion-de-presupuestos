@@ -17,7 +17,7 @@ export default function BotonSalir() {
     <button
       type="button"
       onClick={salir}
-      className="flex items-center gap-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg font-medium transition-colors min-h-10"
+      className="boton boton-hueco boton-chico"
     >
       <LogOut size={16} /> Salir
     </button>

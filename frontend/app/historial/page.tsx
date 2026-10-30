@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { FileText, History, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import BandaMarca from "../components/BandaMarca";
 import BotonSalir from "../components/BotonSalir";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { useToast } from "../components/Toast";
@@ -82,24 +83,23 @@ export default function Historial() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-100 py-6 sm:py-10">
-      <div className="max-w-5xl mx-auto p-4 sm:p-6 bg-white shadow-lg rounded-xl border border-gray-100">
-        <div className="flex flex-wrap justify-between items-center gap-3 border-b pb-4 mb-6">
-          <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2 sm:text-2xl">
-            <History className="text-blue-600 shrink-0" /> Historial de Documentos
+    <main className="min-h-screen bg-cemento">
+      <BandaMarca />
+      <div className="hoja mx-auto my-5 max-w-5xl px-4 py-5 sm:my-8 sm:px-6 sm:py-6">
+        <div className="mb-6 flex flex-col gap-4 border-b border-linea pb-4 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="flex items-center gap-2 text-[1.35rem] font-bold tracking-tight text-carbon sm:text-2xl">
+            <History className="shrink-0 text-oro-oscuro" size={22} aria-hidden="true" />{" "}
+            Historial de documentos
           </h1>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <button
               type="button"
               onClick={() => void cargar(true)}
-              className="flex items-center gap-1.5 min-h-10 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg font-medium transition-colors"
+              className="boton boton-hueco boton-chico"
             >
               <RefreshCw size={16} /> Actualizar
             </button>
-            <Link
-              href="/"
-              className="flex items-center gap-1.5 min-h-10 text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg font-medium transition-colors"
-            >
+            <Link href="/" className="boton boton-oro boton-chico">
               <Plus size={16} /> Nuevo documento
             </Link>
             <BotonSalir />
@@ -120,14 +120,17 @@ export default function Historial() {
         )}
 
         {documentos === null ? (
-          <p className="py-10 text-center text-gray-500">Cargando documentos...</p>
+          <p className="py-10 text-center text-albanil">Cargando documentos...</p>
         ) : documentos.length === 0 ? (
           <div className="py-12 text-center">
-            <FileText size={40} className="mx-auto text-gray-300 mb-3" />
-            <p className="text-gray-600 font-medium">Todavía no hay documentos guardados</p>
-            <p className="text-sm text-gray-400 mt-1">
+            <FileText size={40} className="mx-auto text-linea mb-3" aria-hidden="true" />
+            <p className="font-medium text-carbon">Todavía no hay documentos guardados</p>
+            <p className="mt-1 text-sm text-albanil">
               Crea el primero desde el{" "}
-              <Link href="/" className="text-blue-600 hover:underline">
+              <Link
+                href="/"
+                className="font-medium text-carbon underline decoration-oro decoration-2 underline-offset-2 hover:no-underline"
+              >
                 generador de documentos
               </Link>
               .
@@ -138,39 +141,41 @@ export default function Historial() {
             {/* Móvil: tarjetas */}
             <ul className="space-y-3 sm:hidden">
               {documentos.map((documento) => (
-                <li key={documento.id} className="border rounded-lg p-4">
+                <li key={documento.id} className="rounded-lg border border-linea bg-cemento/60 p-4">
                   <div className="flex items-center justify-between gap-2">
                     <span
-                      className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
                         documento.tipo === "factura"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-blue-100 text-blue-700"
+                          ? "bg-carbon text-oro-claro"
+                          : "border border-oro/50 bg-oro/15 text-[#8a5a12]"
                       }`}
                     >
                       {documento.tipo === "factura" ? "Factura" : "Presupuesto"}
                     </span>
-                    <span className="font-semibold text-gray-800">{documento.numero}</span>
+                    <span className="cifras font-semibold text-carbon">{documento.numero}</span>
                   </div>
 
-                  <p className="mt-2 text-sm text-gray-700 truncate">
+                  <p className="mt-2 truncate text-sm text-albanil">
                     {documento.cliente?.nombre || "—"}
                     {documento.cliente?.nif && (
-                      <span className="text-gray-400"> · {documento.cliente.nif}</span>
+                      <span className="text-albanil-claro"> · {documento.cliente.nif}</span>
                     )}
                   </p>
 
                   <div className="mt-1 flex items-center justify-between">
-                    <span className="text-sm text-gray-500">{formatearFecha(documento.fecha)}</span>
-                    <span className="font-bold text-gray-800">
+                    <span className="cifras text-sm text-albanil">
+                      {formatearFecha(documento.fecha)}
+                    </span>
+                    <span className="cifras font-bold text-carbon">
                       {formatearEuros(documento.total_general)}
                     </span>
                   </div>
 
-                  <div className="mt-3 flex justify-end gap-2 border-t pt-2">
+                  <div className="mt-3 flex justify-end gap-2 border-t border-linea pt-2">
                     <Link
                       href={`/?editar=${documento.id}`}
                       aria-label={`Editar documento ${documento.numero}`}
-                      className="flex items-center justify-center min-h-11 min-w-11 text-blue-600 hover:text-blue-800 rounded-lg hover:bg-blue-50 transition-colors"
+                      className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-carbon transition-colors hover:bg-oro/15 hover:text-oro-oscuro"
                     >
                       <Pencil size={18} />
                     </Link>
@@ -179,7 +184,7 @@ export default function Historial() {
                       aria-label={`Eliminar documento ${documento.numero}`}
                       disabled={eliminandoId === documento.id}
                       onClick={() => setPorEliminar(documento)}
-                      className="flex items-center justify-center min-h-11 min-w-11 text-red-500 hover:text-red-700 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                      className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-senal transition-colors hover:bg-red-50 disabled:opacity-50"
                     >
                       <Trash2 size={18} />
                     </button>

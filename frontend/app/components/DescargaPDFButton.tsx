@@ -25,7 +25,7 @@ export default function DescargaPDFButton(props: Props) {
     <PDFDownloadLinkDynamic
       document={<DocumentoPDF {...props} />}
       fileName={`${props.tipoDoc}-${props.numeroDoc || "documento"}.pdf`}
-      className="flex items-center justify-center gap-2 min-h-11 w-full sm:w-auto bg-gray-800 hover:bg-gray-900 text-white px-5 py-2.5 rounded-lg font-medium transition-colors cursor-pointer"
+      className="boton boton-carbon w-full cursor-pointer sm:w-auto"
     >
       {({ loading }) =>
         loading ? (
