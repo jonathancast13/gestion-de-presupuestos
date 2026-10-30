@@ -38,6 +38,12 @@ Abre <http://localhost:3000> e inicia sesión con el usuario y la contraseña
 configurados en `backend/.env` (en local puedes usar `admin` / `admin123` si has
 creado el `.env` con el hash de esa contraseña).
 
+> **Aviso de puertos:** si el 3000 está ocupado (por ejemplo por otro servidor
+> de este proyecto), `next dev` arranca solo en el **3001** y el login fallará
+> con *"No se pudo conectar con el servidor de Python"* porque ese origen no
+> está en `CORS_ORIGINS`. Solución: libera el 3000 o añade
+> `http://localhost:3001` a `CORS_ORIGINS` en `backend/.env`.
+
 ---
 
 ## 1. Backend (puerto 5000)
