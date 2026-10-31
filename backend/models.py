@@ -42,7 +42,10 @@ class Documento(db.Model):
 
     # Descripción breve del trabajo (opcional, la escribe el cliente)
     descripcion_trabajo = db.Column(db.Text, nullable=True)
-    
+
+    # Condiciones del presupuesto editables por documento (texto en dos columnas del PDF)
+    condiciones = db.Column(db.Text, nullable=True)
+
     # Relación con las líneas (partidas), siempre en el orden en que se crearon
     lineas = db.relationship(
         'LineaDocumento',
@@ -50,6 +53,15 @@ class Documento(db.Model):
         cascade="all, delete-orphan",
         lazy=True,
         order_by='LineaDocumento.id',
+    )
+
+    # Formas de pago (calendario: concepto + porcentaje), en orden de creación
+    formas_pago = db.relationship(
+        'FormaPago',
+        backref='documento',
+        cascade="all, delete-orphan",
+        lazy=True,
+        order_by='FormaPago.id',
     )
 
     def to_dict(self):
@@ -60,10 +72,12 @@ class Documento(db.Model):
             "fecha": self.fecha,
             "cliente": self.cliente.to_dict() if self.cliente else None,
             "descripcion_trabajo": self.descripcion_trabajo,
+            "condiciones": self.condiciones,
             "subtotal": self.subtotal,
             "total_iva": self.total_iva,
             "total_general": self.total_general,
-            "lineas": [linea.to_dict() for linea in self.lineas]
+            "lineas": [linea.to_dict() for linea in self.lineas],
+            "formas_pago": [forma.to_dict() for forma in self.formas_pago]
         }
 
 
@@ -73,6 +87,8 @@ class LineaDocumento(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     documento_id = db.Column(db.Integer, db.ForeignKey('documentos.id'), nullable=False)
     descripcion = db.Column(db.String(255), nullable=False)
+    # Unidad de medida que se muestra en la columna UD. del PDF (opcional)
+    ud = db.Column(db.String(20), nullable=True)
     cantidad = db.Column(db.Float, nullable=False)
     precio_unitario = db.Column(db.Float, nullable=False)
     iva = db.Column(db.Float, nullable=False) # Ej: 21.0 o 10.0
@@ -81,8 +97,29 @@ class LineaDocumento(db.Model):
         return {
             "id": self.id,
             "descripcion": self.descripcion,
+            "ud": self.ud,
             "cantidad": self.cantidad,
             "precio_unitario": self.precio_unitario,
             "iva": self.iva,
             "subtotal": self.cantidad * self.precio_unitario
+        }
+
+
+class FormaPago(db.Model):
+    """Un tramo del calendario de pagos: concepto y porcentaje del total."""
+    __tablename__ = 'formas_pago'
+
+    id = db.Column(db.Integer, primary_key=True)
+    documento_id = db.Column(db.Integer, db.ForeignKey('documentos.id'), nullable=False)
+    concepto = db.Column(db.String(60), nullable=False)
+    porcentaje = db.Column(db.Float, nullable=False)
+    # Texto explicativo que aparece en las columnas del PDF (opcional)
+    descripcion = db.Column(db.Text, nullable=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "concepto": self.concepto,
+            "porcentaje": self.porcentaje,
+            "descripcion": self.descripcion
         }

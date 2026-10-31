@@ -21,6 +21,15 @@ PATRON_NUMERO_AUTO = re.compile(r'^(PRE|FAC)-\d{4}-\d{3,}$')
 MAX_INTENTOS_GUARDADO = 3
 # Descripción breve del trabajo escrita por el cliente (opcional)
 MAX_DESCRIPCION_TRABAJO = 500
+# Condiciones del presupuesto editables por documento (opcional)
+MAX_CONDICIONES = 2000
+# Unidad de medida de una línea (columna UD. del PDF, opcional)
+MAX_UD = 20
+# Forma de pago: concepto del tramo y su texto explicativo
+MAX_CONCEPTO_PAGO = 60
+MAX_DESCRIPCION_PAGO = 400
+# Tolerancia al sumar porcentajes por redondeos (ej: 33.33 x 3)
+TOLERANCIA_PORCENTAJE = 0.01
 
 
 class ErrorValidacion(Exception):
@@ -85,6 +94,25 @@ def leer_descripcion_trabajo(data):
     return texto
 
 
+def leer_condiciones(data):
+    """Condiciones del presupuesto, opcionales.
+
+    Devuelve None si la clave no viene (en PUT el valor se conserva) y la
+    cadena limpia si viene: una cadena vacía significa borrar el campo.
+    """
+    if 'condiciones' not in data:
+        return None
+    valor = data.get('condiciones')
+    if valor is None:
+        return None
+    texto = str(valor).strip()
+    if len(texto) > MAX_CONDICIONES:
+        raise ErrorValidacion(
+            f'Las condiciones no pueden superar los {MAX_CONDICIONES} caracteres.'
+        )
+    return texto
+
+
 def leer_cliente(data, obligatorio=True):
     cliente_data = data.get('cliente')
     if cliente_data is None and not obligatorio:
@@ -126,6 +154,12 @@ def validar_items(data):
         if not descripcion:
             raise ErrorValidacion(f'La línea {posicion} necesita una descripción.')
 
+        ud = str(item.get('ud') or '').strip()
+        if len(ud) > MAX_UD:
+            raise ErrorValidacion(
+                f'La línea {posicion}: la unidad (UD.) no puede superar los {MAX_UD} caracteres.'
+            )
+
         try:
             cantidad = float(item.get('cantidad'))
             precio = float(item.get('precioUnitario', item.get('precio_unitario')))
@@ -143,6 +177,7 @@ def validar_items(data):
         subtotal = dinero(cantidad * precio)
         lineas.append({
             'descripcion': descripcion,
+            'ud': ud or None,
             'cantidad': cantidad,
             'precio_unitario': precio,
             'iva': iva,
@@ -150,6 +185,66 @@ def validar_items(data):
             'importe_iva': dinero(subtotal * iva / 100),
         })
     return lineas
+
+
+def validar_formas_pago(data):
+    """Calendario de pagos (opcional): lista de concepto + porcentaje.
+
+    Devuelve None si la clave no viene (en PUT se conserva) o una lista ya
+    validada: los porcentajes deben sumar 100. Una lista vacía borra el
+    calendario del documento.
+    """
+    if 'formas_pago' not in data:
+        return None
+    formas = data.get('formas_pago')
+    if formas is None:
+        return []
+    if not isinstance(formas, list):
+        raise ErrorValidacion('Las formas de pago no son válidas.')
+
+    resultado = []
+    for posicion, forma in enumerate(formas, start=1):
+        if not isinstance(forma, dict):
+            raise ErrorValidacion(f'La forma de pago {posicion} no es válida.')
+
+        concepto = str(forma.get('concepto') or '').strip()
+        if not concepto:
+            raise ErrorValidacion(f'La forma de pago {posicion} necesita un concepto.')
+        if len(concepto) > MAX_CONCEPTO_PAGO:
+            raise ErrorValidacion(
+                f'El concepto de la forma de pago {posicion} no puede superar '
+                f'los {MAX_CONCEPTO_PAGO} caracteres.'
+            )
+
+        try:
+            porcentaje = float(forma.get('porcentaje'))
+        except (TypeError, ValueError):
+            raise ErrorValidacion(f'La forma de pago {posicion} tiene un porcentaje no válido.')
+        if not 0 < porcentaje <= 100:
+            raise ErrorValidacion(
+                f'La forma de pago {posicion} necesita un porcentaje entre 0 y 100.'
+            )
+
+        descripcion = str(forma.get('descripcion') or '').strip()
+        if len(descripcion) > MAX_DESCRIPCION_PAGO:
+            raise ErrorValidacion(
+                f'La descripción de la forma de pago {posicion} no puede superar '
+                f'los {MAX_DESCRIPCION_PAGO} caracteres.'
+            )
+
+        resultado.append({
+            'concepto': concepto,
+            'porcentaje': dinero(porcentaje),
+            'descripcion': descripcion or None,
+        })
+
+    if resultado:
+        total = sum(forma['porcentaje'] for forma in resultado)
+        if abs(total - 100) > TOLERANCIA_PORCENTAJE:
+            raise ErrorValidacion(
+                f'Los porcentajes de pago deben sumar 100 %. Suma actual: {dinero(total)} %.'
+            )
+    return resultado
 
 
 def calcular_totales(lineas):

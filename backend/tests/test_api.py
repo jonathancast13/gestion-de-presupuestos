@@ -319,3 +319,187 @@ def test_eliminar_documento(client):
     assert r.status_code == 200
     assert client.get(f"/api/documentos/{creado['id']}").status_code == 404
     assert client.get('/api/documentos').get_json() == []
+
+
+# ---------------------------------------------------------------------------
+# Unidad de medida (columna UD. del PDF)
+# ---------------------------------------------------------------------------
+
+def test_linea_con_ud(client):
+    items = [{'descripcion': 'Gotele', 'ud': 'm2', 'cantidad': 2, 'precioUnitario': 10, 'iva': 21}]
+    datos = crear(client, items=items)
+    assert datos['lineas'][0]['ud'] == 'm2'
+
+
+def test_linea_sin_ud_devuelve_null(client):
+    datos = crear(client)
+    assert datos['lineas'][0]['ud'] is None
+
+
+def test_ud_demasiado_larga_rechazada(client):
+    items = [{'descripcion': 'Gotele', 'ud': 'x' * 21, 'cantidad': 1, 'precioUnitario': 1, 'iva': 21}]
+    r = client.post('/api/documentos', json=payload(items=items))
+    assert r.status_code == 400
+    assert 'unidad' in r.get_json()['error']
+
+
+def test_actualizar_ud_de_las_lineas(client):
+    creado = crear(client)
+    items = [{'descripcion': 'Gotele', 'ud': 'ud', 'cantidad': 1, 'precioUnitario': 10, 'iva': 21}]
+    r = client.put(f"/api/documentos/{creado['id']}", json={'items': items})
+    assert r.status_code == 200
+    assert r.get_json()['lineas'][0]['ud'] == 'ud'
+
+
+# ---------------------------------------------------------------------------
+# Condiciones del presupuesto
+# ---------------------------------------------------------------------------
+
+def test_crear_sin_condiciones_devuelve_null(client):
+    assert crear(client)['condiciones'] is None
+
+
+def test_crear_con_condiciones(client):
+    datos = crear(client, condiciones='  Validez: 30 días.  ')
+    assert datos['condiciones'] == 'Validez: 30 días.'
+
+
+def test_condiciones_vacias_en_post_se_guardan_como_null(client):
+    assert crear(client, condiciones='   ')['condiciones'] is None
+
+
+def test_condiciones_demasiado_largas_rechazadas(client):
+    r = client.post('/api/documentos', json=payload(condiciones='x' * 2001))
+    assert r.status_code == 400
+    assert 'condiciones' in r.get_json()['error']
+
+
+def test_actualizar_condiciones(client):
+    creado = crear(client)
+    r = client.put(f"/api/documentos/{creado['id']}", json={'condiciones': 'Alcance: solo lo descrito.'})
+    assert r.status_code == 200
+    assert r.get_json()['condiciones'] == 'Alcance: solo lo descrito.'
+
+
+def test_actualizar_sin_clave_conserva_las_condiciones(client):
+    creado = crear(client, condiciones='Validez: 30 días.')
+    r = client.put(f"/api/documentos/{creado['id']}", json={'fecha': '2026-05-02'})
+    assert r.status_code == 200
+    assert r.get_json()['condiciones'] == 'Validez: 30 días.'
+
+
+def test_condiciones_vacias_en_put_las_boran(client):
+    creado = crear(client, condiciones='Validez: 30 días.')
+    r = client.put(f"/api/documentos/{creado['id']}", json={'condiciones': ''})
+    assert r.status_code == 200
+    assert r.get_json()['condiciones'] is None
+
+
+# ---------------------------------------------------------------------------
+# Formas de pago (calendario)
+# ---------------------------------------------------------------------------
+
+FORMAS = [
+    {'concepto': 'ACEPTACIÓN DE OBRA', 'porcentaje': 50},
+    {'concepto': 'AVANCE DE OBRA', 'porcentaje': 25},
+    {'concepto': 'FINALIZACIÓN DE OBRA', 'porcentaje': 25},
+]
+
+
+def test_crear_sin_formas_pago_devuelve_lista_vacia(client):
+    datos = crear(client)
+    assert datos['formas_pago'] == []
+
+
+def test_crear_con_formas_pago(client):
+    formas = [dict(f, descripcion='Texto del tramo') for f in FORMAS]
+    datos = crear(client, formas_pago=formas)
+    assert [f['concepto'] for f in datos['formas_pago']] == [
+        'ACEPTACIÓN DE OBRA', 'AVANCE DE OBRA', 'FINALIZACIÓN DE OBRA'
+    ]
+    assert [f['porcentaje'] for f in datos['formas_pago']] == [50.0, 25.0, 25.0]
+    assert datos['formas_pago'][0]['descripcion'] == 'Texto del tramo'
+
+
+def test_formas_pago_con_descripcion_opcional(client):
+    datos = crear(client, formas_pago=[{'concepto': 'GARANTÍA', 'porcentaje': 100}])
+    assert datos['formas_pago'][0]['descripcion'] is None
+
+
+def test_porcentajes_que_no_suman_100_rechazados(client):
+    formas = [{'concepto': 'ÚNICO PAGO', 'porcentaje': 80}]
+    r = client.post('/api/documentos', json=payload(formas_pago=formas))
+    assert r.status_code == 400
+    assert '100' in r.get_json()['error']
+
+
+def test_porcentajes_con_decimales_suman_100(client):
+    formas = [
+        {'concepto': 'A', 'porcentaje': 33.33},
+        {'concepto': 'B', 'porcentaje': 33.33},
+        {'concepto': 'C', 'porcentaje': 33.34},
+    ]
+    assert crear(client, formas_pago=formas)['formas_pago']
+
+
+def test_forma_pago_sin_concepto_rechazada(client):
+    r = client.post('/api/documentos', json=payload(
+        formas_pago=[{'concepto': '  ', 'porcentaje': 100}]
+    ))
+    assert r.status_code == 400
+    assert 'concepto' in r.get_json()['error']
+
+
+def test_concepto_demasiado_largo_rechazado(client):
+    r = client.post('/api/documentos', json=payload(
+        formas_pago=[{'concepto': 'x' * 61, 'porcentaje': 100}]
+    ))
+    assert r.status_code == 400
+    assert 'concepto' in r.get_json()['error']
+
+
+def test_porcentaje_cero_o_negativo_rechazado(client):
+    for porcentaje in (0, -5):
+        r = client.post('/api/documentos', json=payload(
+            formas_pago=[{'concepto': 'ÚNICO PAGO', 'porcentaje': porcentaje}]
+        ))
+        assert r.status_code == 400
+
+
+def test_porcentaje_mayor_100_rechazado(client):
+    r = client.post('/api/documentos', json=payload(
+        formas_pago=[{'concepto': 'ÚNICO PAGO', 'porcentaje': 120}]
+    ))
+    assert r.status_code == 400
+
+
+def test_formas_pago_no_lista_rechazadas(client):
+    r = client.post('/api/documentos', json=payload(formas_pago={'concepto': 'X', 'porcentaje': 100}))
+    assert r.status_code == 400
+
+
+def test_actualizar_reemplaza_las_formas_pago(client):
+    creado = crear(client, formas_pago=[dict(FORMAS[0], porcentaje=100)])
+    r = client.put(f"/api/documentos/{creado['id']}", json={'formas_pago': FORMAS})
+    assert r.status_code == 200
+    assert len(r.get_json()['formas_pago']) == 3
+
+
+def test_actualizar_sin_clave_conserva_las_formas_pago(client):
+    creado = crear(client, formas_pago=[dict(FORMAS[0], porcentaje=100)])
+    r = client.put(f"/api/documentos/{creado['id']}", json={'fecha': '2026-05-02'})
+    assert r.status_code == 200
+    assert len(r.get_json()['formas_pago']) == 1
+
+
+def test_formas_pago_vacias_en_put_las_boran(client):
+    creado = crear(client, formas_pago=[dict(FORMAS[0], porcentaje=100)])
+    r = client.put(f"/api/documentos/{creado['id']}", json={'formas_pago': []})
+    assert r.status_code == 200
+    assert r.get_json()['formas_pago'] == []
+
+
+def test_eliminar_documento_borra_las_formas_pago(client):
+    creado = crear(client, formas_pago=FORMAS)
+    assert client.delete(f"/api/documentos/{creado['id']}").status_code == 200
+    assert client.get(f"/api/documentos/{creado['id']}").status_code == 404

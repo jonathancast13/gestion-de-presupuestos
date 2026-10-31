@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from auth import requiere_auth
-from models import Documento, LineaDocumento, db
+from models import Documento, FormaPago, LineaDocumento, db
 from validacion import (
     ErrorValidacion,
     MAX_INTENTOS_GUARDADO,
@@ -17,10 +17,12 @@ from validacion import (
     generar_siguiente_numero,
     guardar_cliente,
     leer_cliente,
+    leer_condiciones,
     leer_descripcion_trabajo,
     leer_fecha,
     leer_tipo,
     numero_disponible,
+    validar_formas_pago,
     validar_items,
 )
 
@@ -45,7 +47,9 @@ def guardar_documento():
     fecha = leer_fecha(data)
     datos_cliente = leer_cliente(data)
     descripcion_trabajo = leer_descripcion_trabajo(data) or None
+    condiciones = leer_condiciones(data) or None
     lineas = validar_items(data)
+    formas_pago = validar_formas_pago(data) or []
     subtotal, total_iva, total_general = calcular_totales(lineas)
 
     # Reintenta ante una colisión de número (dos peticiones a la vez)
@@ -58,6 +62,7 @@ def guardar_documento():
                 fecha=fecha,
                 cliente_id=cliente.id,
                 descripcion_trabajo=descripcion_trabajo,
+                condiciones=condiciones,
                 subtotal=subtotal,
                 total_iva=total_iva,
                 total_general=total_general,
@@ -69,9 +74,18 @@ def guardar_documento():
                 db.session.add(LineaDocumento(
                     documento_id=documento.id,
                     descripcion=linea['descripcion'],
+                    ud=linea['ud'],
                     cantidad=linea['cantidad'],
                     precio_unitario=linea['precio_unitario'],
                     iva=linea['iva'],
+                ))
+
+            for forma in formas_pago:
+                db.session.add(FormaPago(
+                    documento_id=documento.id,
+                    concepto=forma['concepto'],
+                    porcentaje=forma['porcentaje'],
+                    descripcion=forma['descripcion'],
                 ))
 
             db.session.commit()
@@ -89,7 +103,11 @@ def guardar_documento():
 def obtener_documentos():
     documentos = db.session.execute(
         select(Documento)
-        .options(selectinload(Documento.cliente), selectinload(Documento.lineas))
+        .options(
+            selectinload(Documento.cliente),
+            selectinload(Documento.lineas),
+            selectinload(Documento.formas_pago),
+        )
         .order_by(Documento.id.desc())
     ).scalars().all()
     return jsonify([documento.to_dict() for documento in documentos]), 200
@@ -130,10 +148,12 @@ def actualizar_documento(id):
     documento.numero = numero
     documento.fecha = fecha
 
-    # Descripción del trabajo: solo se toca si viene la clave en la petición
-    # (una cadena vacía la borra)
+    # Descripción del trabajo y condiciones: solo se tocan si vienen en la
+    # petición (una cadena vacía borra el campo)
     if 'descripcion_trabajo' in data:
         documento.descripcion_trabajo = leer_descripcion_trabajo(data) or None
+    if 'condiciones' in data:
+        documento.condiciones = leer_condiciones(data) or None
 
     datos_cliente = leer_cliente(data, obligatorio=False)
     if datos_cliente:
@@ -153,9 +173,22 @@ def actualizar_documento(id):
             db.session.add(LineaDocumento(
                 documento_id=documento.id,
                 descripcion=linea['descripcion'],
+                ud=linea['ud'],
                 cantidad=linea['cantidad'],
                 precio_unitario=linea['precio_unitario'],
                 iva=linea['iva'],
+            ))
+
+    # El calendario de pagos solo se reemplaza si viene en la petición
+    if 'formas_pago' in data:
+        formas_pago = validar_formas_pago(data) or []
+        FormaPago.query.filter_by(documento_id=documento.id).delete()
+        for forma in formas_pago:
+            db.session.add(FormaPago(
+                documento_id=documento.id,
+                concepto=forma['concepto'],
+                porcentaje=forma['porcentaje'],
+                descripcion=forma['descripcion'],
             ))
 
     try:

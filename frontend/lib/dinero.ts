@@ -39,12 +39,19 @@ export function desgloseIva(items: LineaCalculo[]): Array<{ iva: number; importe
     .sort((a, b) => b.iva - a.iva);
 }
 
-const formatoEuros = new Intl.NumberFormat("es-ES", {
-  style: "currency",
-  currency: "EUR",
+const formatoNumero = new Intl.NumberFormat("es-ES", {
   minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
 });
 
 export function formatearEuros(valor: number): string {
-  return formatoEuros.format(valor);
+  const texto = formatoNumero.format(valor);
+  // CLDR ya no agrupa las cifras de 4 dígitos en español ("2000,00"), pero
+  // la plantilla del cliente escribe siempre el punto de miles ("2.000,00 €")
+  const cuatroCifras = /^(-?)(\d{4})(,\d{2})/.exec(texto);
+  if (cuatroCifras) {
+    const [, signo, cifras, decimal] = cuatroCifras;
+    return `${signo}${cifras[0]}.${cifras.slice(1)}${decimal} €`;
+  }
+  return `${texto} €`;
 }

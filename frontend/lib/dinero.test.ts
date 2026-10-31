@@ -89,4 +89,10 @@ describe("formatearEuros", () => {
     expect(texto).toContain("234");
     expect(texto).toMatch(/,\d{2}/); // coma decimal española
   });
+
+  it("agrupa los miles aunque el número tenga cuatro cifras (2.000,00 €)", () => {
+    expect(formatearEuros(2000)).toBe("2.000,00 €");
+    expect(formatearEuros(2420)).toBe("2.420,00 €");
+    expect(formatearEuros(12345.67)).toBe("12.345,67 €");
+  });
 });

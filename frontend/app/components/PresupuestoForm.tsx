@@ -9,7 +9,9 @@ import DescargaPDFButton from "./DescargaPDFButton";
 import { useToast } from "./Toast";
 import { actualizarDocumento, crearDocumento, obtenerDocumento, obtenerProximoNumero } from "@/lib/api";
 import { calcularTotales, formatearEuros, subtotalDeLinea } from "@/lib/dinero";
-import type { ClienteData, DocumentoPayload, ItemLinea, TipoDocumento } from "@/types";
+import { CONDICIONES_POR_DEFECTO, FORMAS_PAGO_POR_DEFECTO } from "@/lib/empresa";
+import { cuadra100, importeFormaPago, sumaPorcentajes } from "@/lib/plantilla";
+import type { ClienteData, DocumentoPayload, FormaPago, ItemLinea, TipoDocumento } from "@/types";
 
 // Valor por defecto calculado fuera del render (la pureza de React lo exige)
 const FECHA_INICIAL = new Date().toISOString().split("T")[0];
@@ -21,8 +23,25 @@ function siguienteIdLinea(): string {
   return `linea-${contadorLineas}`;
 }
 
+// Identificadores de forma de pago (mismo criterio que las líneas)
+let contadorFormas = 0;
+function siguienteIdForma(): string {
+  contadorFormas += 1;
+  return `pago-${contadorFormas}`;
+}
+
 function lineaVacia(): ItemLinea {
-  return { id: siguienteIdLinea(), descripcion: "", cantidad: 1, precioUnitario: 0, iva: 21 };
+  return { id: siguienteIdLinea(), descripcion: "", ud: "ud", cantidad: 1, precioUnitario: 0, iva: 21 };
+}
+
+// Calendario de pagos por defecto (50/25/25), editable en el formulario
+function formasPagoIniciales(): FormaPago[] {
+  return FORMAS_PAGO_POR_DEFECTO.map((forma) => ({
+    id: siguienteIdForma(),
+    concepto: forma.concepto,
+    porcentaje: forma.porcentaje,
+    descripcion: forma.descripcion,
+  }));
 }
 
 // Campos definidos en globals.css: 16px de fuente evita el zoom de iOS
@@ -42,6 +61,7 @@ export default function PresupuestoForm() {
   const [numeroDoc, setNumeroDoc] = useState("");
   const [fecha, setFecha] = useState(FECHA_INICIAL);
   const [descripcionTrabajo, setDescripcionTrabajo] = useState("");
+  const [condiciones, setCondiciones] = useState(CONDICIONES_POR_DEFECTO);
   const [guardando, setGuardando] = useState(false);
   const [cargandoDocumento, setCargandoDocumento] = useState(esEdicion);
 
@@ -56,6 +76,9 @@ export default function PresupuestoForm() {
   // Estado de las líneas (partidas de la reforma)
   const [items, setItems] = useState<ItemLinea[]>([lineaVacia()]);
 
+  // Estado del calendario de pagos (concepto + porcentaje del total)
+  const [formasPago, setFormasPago] = useState<FormaPago[]>(formasPagoIniciales);
+
   // Cargar el documento cuando se llega con ?editar=id
   useEffect(() => {
     if (!esEdicion || idEditando === null) return;
@@ -68,6 +91,8 @@ export default function PresupuestoForm() {
         setNumeroDoc(documento.numero);
         setFecha(documento.fecha);
         setDescripcionTrabajo(documento.descripcion_trabajo ?? "");
+        // Documentos antiguos sin condiciones: se precarga el texto por defecto
+        setCondiciones(documento.condiciones ?? CONDICIONES_POR_DEFECTO);
         if (documento.cliente) {
           setCliente({
             nombre: documento.cliente.nombre ?? "",
@@ -81,11 +106,22 @@ export default function PresupuestoForm() {
             ? documento.lineas.map((linea, indice) => ({
                 id: `cargada-${indice}`,
                 descripcion: linea.descripcion,
+                ud: linea.ud ?? "ud",
                 cantidad: linea.cantidad,
                 precioUnitario: linea.precio_unitario,
                 iva: linea.iva,
               }))
             : [lineaVacia()]
+        );
+        setFormasPago(
+          documento.formas_pago.length > 0
+            ? documento.formas_pago.map((forma, indice) => ({
+                id: `pago-cargado-${indice}`,
+                concepto: forma.concepto,
+                porcentaje: forma.porcentaje,
+                descripcion: forma.descripcion ?? "",
+              }))
+            : []
         );
         setCargandoDocumento(false);
       })
@@ -141,8 +177,32 @@ export default function PresupuestoForm() {
     );
   };
 
+  // Formas de pago: añadir, quitar y actualizar un tramo del calendario
+  const agregarFormaPago = () => {
+    setFormasPago((prev) => [
+      ...prev,
+      { id: siguienteIdForma(), concepto: "", porcentaje: 0, descripcion: "" },
+    ]);
+  };
+
+  const eliminarFormaPago = (id: string) => {
+    setFormasPago((prev) => prev.filter((forma) => forma.id !== id));
+  };
+
+  const actualizarFormaPago = <K extends keyof FormaPago>(
+    id: string,
+    campo: K,
+    valor: FormaPago[K]
+  ) => {
+    setFormasPago((prev) =>
+      prev.map((forma) => (forma.id === id ? { ...forma, [campo]: valor } : forma))
+    );
+  };
+
   // Cálculos automáticos (misma aritmética que el backend)
   const { subtotal, totalIva, total } = calcularTotales(items);
+  const porcentajesPago = formasPago.map((forma) => forma.porcentaje);
+  const sumaPago = sumaPorcentajes(porcentajesPago);
 
   // Guardar en el backend (POST al crear, PUT al editar)
   const guardarEnBackend = async () => {
@@ -162,6 +222,22 @@ export default function PresupuestoForm() {
       toast.error(`La partida ${sinCantidad + 1} necesita una cantidad mayor que 0.`);
       return;
     }
+    const sinConcepto = formasPago.findIndex((forma) => !forma.concepto.trim());
+    if (sinConcepto >= 0) {
+      toast.error(`La forma de pago ${sinConcepto + 1} necesita un concepto.`);
+      return;
+    }
+    const sinPorcentaje = formasPago.findIndex((forma) => !(forma.porcentaje > 0));
+    if (sinPorcentaje >= 0) {
+      toast.error(`La forma de pago ${sinPorcentaje + 1} necesita un porcentaje mayor que 0.`);
+      return;
+    }
+    if (!cuadra100(porcentajesPago)) {
+      toast.error(
+        `Los porcentajes de pago deben sumar 100 %. Suma actual: ${Math.round(sumaPago * 100) / 100} %.`
+      );
+      return;
+    }
 
     const payload: DocumentoPayload = {
       tipo: tipoDoc,
@@ -169,11 +245,18 @@ export default function PresupuestoForm() {
       fecha,
       cliente,
       descripcion_trabajo: descripcionTrabajo,
-      items: items.map(({ descripcion, cantidad, precioUnitario, iva }) => ({
+      condiciones,
+      items: items.map(({ descripcion, ud, cantidad, precioUnitario, iva }) => ({
         descripcion,
+        ud,
         cantidad,
         precioUnitario,
         iva,
+      })),
+      formas_pago: formasPago.map(({ concepto, porcentaje, descripcion }) => ({
+        concepto,
+        porcentaje,
+        descripcion,
       })),
     };
 
@@ -400,7 +483,7 @@ export default function PresupuestoForm() {
                 </button>
               </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-3">
+              <div className="mt-3 grid grid-cols-3 gap-3">
                 <label>
                   <span className="etiqueta-campo">Cantidad</span>
                   <input
@@ -410,6 +493,17 @@ export default function PresupuestoForm() {
                     value={item.cantidad}
                     onChange={(e) => actualizarLinea(item.id, "cantidad", Number(e.target.value))}
                     className={`${CLASE_INPUT} cifras`}
+                  />
+                </label>
+                <label>
+                  <span className="etiqueta-campo">UD.</span>
+                  <input
+                    type="text"
+                    placeholder="ud"
+                    maxLength={20}
+                    value={item.ud}
+                    onChange={(e) => actualizarLinea(item.id, "ud", e.target.value)}
+                    className={CLASE_INPUT}
                   />
                 </label>
                 <label>
@@ -457,6 +551,7 @@ export default function PresupuestoForm() {
             <thead>
               <tr className="cabecera-tabla">
                 <th className="px-3 py-2.5">Descripción</th>
+                <th className="w-16 px-2 py-2.5 text-center">UD.</th>
                 <th className="w-20 px-3 py-2.5 text-center">Cant.</th>
                 <th className="w-28 px-3 py-2.5 text-right">Precio (€)</th>
                 <th className="w-20 px-3 py-2.5 text-center">IVA (%)</th>
@@ -477,6 +572,16 @@ export default function PresupuestoForm() {
                       value={item.descripcion}
                       onChange={(e) => actualizarLinea(item.id, "descripcion", e.target.value)}
                       className={CLASE_INPUT_TABLA}
+                    />
+                  </td>
+                  <td className="p-2">
+                    <input
+                      type="text"
+                      placeholder="ud"
+                      maxLength={20}
+                      value={item.ud}
+                      onChange={(e) => actualizarLinea(item.id, "ud", e.target.value)}
+                      className={`${CLASE_INPUT_TABLA} text-center`}
                     />
                   </td>
                   <td className="p-2">
@@ -540,6 +645,111 @@ export default function PresupuestoForm() {
         </button>
       </div>
 
+      {/* Calendario de pagos (columnas "FORMA DE PAGO" del PDF) */}
+      <div className="mb-7">
+        <h2 className="seccion-titulo mb-1">Forma de pago</h2>
+        <p className="mb-3 text-sm text-albanil">
+          Los importes se calculan sobre el total con IVA. Los porcentajes deben sumar 100 %.
+        </p>
+
+        <ul className="space-y-3">
+          {formasPago.map((forma, indice) => (
+            <li key={forma.id} className="rounded-lg border border-linea bg-cemento/60 p-3">
+              <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[1fr_9rem_10rem_auto]">
+                <label>
+                  <span className="etiqueta-campo">Concepto</span>
+                  <input
+                    type="text"
+                    placeholder="Ej. ACEPTACIÓN DE OBRA"
+                    maxLength={60}
+                    value={forma.concepto}
+                    onChange={(e) => actualizarFormaPago(forma.id, "concepto", e.target.value)}
+                    className={CLASE_INPUT}
+                  />
+                </label>
+                <label>
+                  <span className="etiqueta-campo">Porcentaje (%)</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.5"
+                    min="0"
+                    max="100"
+                    value={forma.porcentaje}
+                    onChange={(e) =>
+                      actualizarFormaPago(forma.id, "porcentaje", Number(e.target.value))
+                    }
+                    className={`${CLASE_INPUT} cifras`}
+                  />
+                </label>
+                <p className="flex items-baseline justify-between gap-2 pb-2.5 text-sm">
+                  <span className="text-albanil">Importe:</span>
+                  <span className="cifras font-semibold text-carbon">
+                    {formatearEuros(importeFormaPago(total, forma.porcentaje))}
+                  </span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => eliminarFormaPago(forma.id)}
+                  aria-label={`Eliminar forma de pago ${indice + 1}`}
+                  className="flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-linea bg-cal p-2.5 text-senal hover:bg-red-50 sm:justify-self-end"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+
+              <label className="mt-3 block">
+                <span className="etiqueta-campo">
+                  Texto explicativo del PDF <span className="font-normal text-albanil">(opcional)</span>
+                </span>
+                <textarea
+                  value={forma.descripcion}
+                  onChange={(e) => actualizarFormaPago(forma.id, "descripcion", e.target.value)}
+                  maxLength={400}
+                  rows={2}
+                  placeholder={`Se abonará el ${forma.porcentaje || 0}% del importe total del presupuesto, IVA incluido...`}
+                  className={`${CLASE_INPUT} resize-y`}
+                />
+              </label>
+            </li>
+          ))}
+        </ul>
+
+        {formasPago.length > 0 && (
+          <p
+            role="status"
+            className={`mt-3 text-sm font-medium ${
+              cuadra100(porcentajesPago) ? "text-oro-oscuro" : "text-senal"
+            }`}
+          >
+            Suma de porcentajes: {Math.round(sumaPago * 100) / 100} %
+            {!cuadra100(porcentajesPago) && " (debe ser 100 %)"}
+          </p>
+        )}
+
+        <button type="button" onClick={agregarFormaPago} className="boton boton-hueco boton-chico mt-3">
+          <Plus size={16} /> Añadir forma de pago
+        </button>
+      </div>
+
+      {/* Condiciones del presupuesto (bloque a dos columnas del PDF) */}
+      <div className="mb-7">
+        <h2 className="seccion-titulo mb-3">Condiciones del presupuesto</h2>
+        <textarea
+          id="condiciones"
+          value={condiciones}
+          onChange={(e) => setCondiciones(e.target.value)}
+          maxLength={2000}
+          rows={6}
+          placeholder={"Una condición por línea.\nEj. Validez: 30 días naturales desde su emisión."}
+          className={`${CLASE_INPUT} resize-y`}
+        />
+        <p className="mt-1.5 text-xs text-albanil">
+          Una condición por línea; la parte inicial (hasta los dos puntos) se imprime en negrita.
+        </p>
+        <p className="mt-1.5 text-right text-xs cifras text-albanil">{condiciones.length}/2000</p>
+      </div>
+
       {/* Totales: el mismo bloque carbón con importe en oro que el PDF */}
       <div className="mb-7 flex justify-end sm:mb-8">
         <div className="w-full rounded-lg bg-carbon p-4 text-cal sm:w-72">
@@ -581,7 +791,9 @@ export default function PresupuestoForm() {
           fecha={fecha}
           cliente={cliente}
           descripcionTrabajo={descripcionTrabajo}
+          condiciones={condiciones}
           items={items}
+          formasPago={formasPago}
         />
 
         <button

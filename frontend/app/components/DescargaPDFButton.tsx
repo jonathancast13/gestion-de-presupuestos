@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { Download } from "lucide-react";
 import DocumentoPDF from "./DocumentoPDF";
-import type { ClienteData, ItemLinea, TipoDocumento } from "@/types";
+import type { ClienteData, FormaPago, ItemLinea, TipoDocumento } from "@/types";
 
 interface Props {
   tipoDoc: TipoDocumento;
@@ -11,7 +11,9 @@ interface Props {
   fecha: string;
   cliente: ClienteData;
   descripcionTrabajo?: string;
+  condiciones?: string;
   items: ItemLinea[];
+  formasPago?: FormaPago[];
 }
 
 // Importación dinámica exclusiva para el cliente (desactiva SSR)
