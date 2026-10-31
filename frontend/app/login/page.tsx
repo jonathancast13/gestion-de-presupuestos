@@ -77,34 +77,40 @@ export default function PaginaLogin() {
   };
 
   return (
-    <main className="min-h-[100dvh] flex items-center justify-center bg-[#0F1113] px-4 py-8">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border-t-4 border-[#D9963A]">
-        <div className="px-6 pt-8 pb-6 sm:px-8 text-center">
+    <main className="flex min-h-[100dvh] items-center justify-center bg-carbon px-4 py-8">
+      <div className="hoja w-full max-w-md overflow-hidden">
+        <div className="h-1.5 bg-oro" aria-hidden="true" />
+        <div className="px-6 pt-8 pb-6 text-center sm:px-8">
           <Image
             src={EMPRESA.logo}
             alt={`Logo de ${EMPRESA.nombre}`}
             className="mx-auto h-20 w-auto"
             priority
           />
-          <h1 className="mt-4 text-xl font-bold text-[#0F1113]">{EMPRESA.nombre}</h1>
-          <p className="mt-1 text-sm text-gray-500">Panel de presupuestos y facturas</p>
+          <h1 className="mt-4 text-[1.3rem] font-bold tracking-tight text-carbon">
+            {EMPRESA.nombre}
+          </h1>
+          <p className="mt-1 text-sm text-albanil">Panel de presupuestos y facturas</p>
         </div>
 
-        <form onSubmit={enviar} className="px-6 pb-8 sm:px-8 space-y-4">
+        <form onSubmit={enviar} className="space-y-4 border-t border-linea px-6 pt-6 pb-8 sm:px-8">
           {avisoCaducada && !error && (
-            <p role="status" className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
+            <p
+              role="status"
+              className="rounded-lg border border-oro/40 bg-oro/10 px-3 py-2 text-sm text-[#7c5314]"
+            >
               Tu sesión ha caducado. Vuelve a iniciar sesión para continuar.
             </p>
           )}
 
           {error && (
-            <p role="alert" className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+            <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
               {error}
             </p>
           )}
 
           <div>
-            <label htmlFor="usuario" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="usuario" className="etiqueta-campo">
               Usuario
             </label>
             <input
@@ -118,12 +124,12 @@ export default function PaginaLogin() {
               value={usuario}
               onChange={(evento) => setUsuario(evento.target.value)}
               placeholder="Tu usuario"
-              className="w-full rounded-lg border border-gray-300 px-3 py-3 text-base outline-none focus:border-[#D9963A] focus:ring-2 focus:ring-[#D9963A]/30"
+              className="campo"
             />
           </div>
 
           <div>
-            <label htmlFor="contrasena" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="contrasena" className="etiqueta-campo">
               Contraseña
             </label>
             <div className="relative">
@@ -135,27 +141,23 @@ export default function PaginaLogin() {
                 value={contrasena}
                 onChange={(evento) => setContrasena(evento.target.value)}
                 placeholder="••••••••"
-                className="w-full rounded-lg border border-gray-300 px-3 py-3 pr-12 text-base outline-none focus:border-[#D9963A] focus:ring-2 focus:ring-[#D9963A]/30"
+                className="campo pr-12"
               />
               <button
                 type="button"
                 onClick={() => setVerClave((valor) => !valor)}
                 aria-label={verClave ? "Ocultar contraseña" : "Mostrar contraseña"}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-gray-600"
+                className="absolute top-1/2 right-2 -translate-y-1/2 p-2 text-albanil hover:text-carbon"
               >
                 {verClave ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={enviando}
-            className="w-full flex items-center justify-center gap-2 rounded-lg bg-[#D9963A] hover:bg-[#c7862f] text-[#0F1113] font-semibold py-3.5 text-base transition-colors disabled:opacity-60"
-          >
+          <button type="submit" disabled={enviando} className="boton boton-oro w-full">
             {enviando ? (
               <>
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#0F1113]/30 border-t-[#0F1113]" />
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-carbon/30 border-t-carbon" />
                 Entrando...
               </>
             ) : (
@@ -165,8 +167,8 @@ export default function PaginaLogin() {
             )}
           </button>
 
-          <p className="text-center text-xs text-gray-400 pt-2">
-            Acceso restringido · {EMPRESA.telefono}
+          <p className="pt-2 text-center text-xs text-albanil">
+            Acceso restringido. ¿No puedes entrar? Llama al {EMPRESA.telefono}.
           </p>
         </form>
       </div>

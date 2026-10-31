@@ -193,50 +193,59 @@ export default function Historial() {
               ))}
             </ul>
 
-            {/* Tablet y escritorio: tabla */}
-            <div className="hidden overflow-x-auto border rounded-lg sm:block">
-              <table className="w-full text-left border-collapse">
+            {/* Tablet y escritorio: tabla (misma cabecera que el PDF) */}
+            <div className="hidden overflow-x-auto rounded-lg border border-linea sm:block">
+              <table className="w-full border-collapse text-left">
                 <thead>
-                  <tr className="bg-gray-50 border-b text-sm text-gray-600">
-                    <th className="p-3">Tipo</th>
-                    <th className="p-3">Nº</th>
-                    <th className="p-3">Fecha</th>
-                    <th className="p-3">Cliente</th>
-                    <th className="p-3 text-right">Total</th>
-                    <th className="p-3 text-center w-32">Acciones</th>
+                  <tr className="cabecera-tabla">
+                    <th className="px-3 py-2.5">Tipo</th>
+                    <th className="px-3 py-2.5">Nº</th>
+                    <th className="px-3 py-2.5">Fecha</th>
+                    <th className="px-3 py-2.5">Cliente</th>
+                    <th className="px-3 py-2.5 text-right">Total</th>
+                    <th className="w-32 px-3 py-2.5 text-center">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {documentos.map((documento) => (
-                    <tr key={documento.id} className="border-b hover:bg-gray-50">
-                      <td className="p-3">
+                    <tr
+                      key={documento.id}
+                      className="border-b border-linea transition-colors last:border-b-0 hover:bg-cemento/50"
+                    >
+                      <td className="px-3 py-2.5">
                         <span
-                          className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                          className={`inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${
                             documento.tipo === "factura"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-blue-100 text-blue-700"
+                              ? "bg-carbon text-oro-claro"
+                              : "border border-oro/50 bg-oro/15 text-[#8a5a12]"
                           }`}
                         >
                           {documento.tipo === "factura" ? "Factura" : "Presupuesto"}
                         </span>
                       </td>
-                      <td className="p-3 font-medium text-gray-800">{documento.numero}</td>
-                      <td className="p-3 text-gray-600">{formatearFecha(documento.fecha)}</td>
-                      <td className="p-3 text-gray-600">
+                      <td className="cifras px-3 py-2.5 font-semibold text-carbon">
+                        {documento.numero}
+                      </td>
+                      <td className="cifras px-3 py-2.5 text-albanil">
+                        {formatearFecha(documento.fecha)}
+                      </td>
+                      <td className="px-3 py-2.5 text-albanil">
                         {documento.cliente?.nombre || "—"}
                         {documento.cliente?.nif && (
-                          <span className="block text-xs text-gray-400">{documento.cliente.nif}</span>
+                          <span className="block text-xs text-albanil-claro">
+                            {documento.cliente.nif}
+                          </span>
                         )}
                       </td>
-                      <td className="p-3 text-right font-semibold text-gray-800">
+                      <td className="cifras px-3 py-2.5 text-right font-semibold text-carbon">
                         {formatearEuros(documento.total_general)}
                       </td>
-                      <td className="p-3">
+                      <td className="px-3 py-2.5">
                         <div className="flex items-center justify-center gap-2">
                           <Link
                             href={`/?editar=${documento.id}`}
                             title="Editar documento"
-                            className="text-blue-600 hover:text-blue-800 p-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+                            className="rounded-lg p-1.5 text-carbon transition-colors hover:bg-oro/15 hover:text-oro-oscuro"
                           >
                             <Pencil size={17} />
                           </Link>
@@ -245,7 +254,7 @@ export default function Historial() {
                             title="Eliminar documento"
                             disabled={eliminandoId === documento.id}
                             onClick={() => setPorEliminar(documento)}
-                            className="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                            className="rounded-lg p-1.5 text-senal transition-colors hover:bg-red-50 disabled:opacity-50"
                           >
                             <Trash2 size={17} />
                           </button>

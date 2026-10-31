@@ -52,16 +52,16 @@ export default function ConfirmDialog({
         if (evento.target === evento.currentTarget && !procesando) onCancelar();
       }}
     >
-      <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-2xl">
+      <div className="hoja w-full max-w-sm p-5">
         <div className="flex items-start gap-3">
-          <span className="mt-0.5 shrink-0 rounded-full bg-red-50 p-1.5 text-red-600">
+          <span className="mt-0.5 shrink-0 rounded-full bg-red-50 p-1.5 text-senal">
             <AlertTriangle size={20} aria-hidden="true" />
           </span>
           <div className="min-w-0">
-            <h2 id="confirmar-titulo" className="font-semibold text-gray-900">
+            <h2 id="confirmar-titulo" className="font-bold text-carbon">
               {titulo}
             </h2>
-            <p className="mt-1 text-sm text-gray-600 break-words">{mensaje}</p>
+            <p className="mt-1 break-words text-sm text-albanil">{mensaje}</p>
           </div>
         </div>
 
@@ -70,7 +70,7 @@ export default function ConfirmDialog({
             type="button"
             onClick={onCancelar}
             disabled={procesando}
-            className="min-h-11 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="boton boton-hueco boton-chico"
           >
             {textoCancelar}
           </button>
@@ -79,7 +79,7 @@ export default function ConfirmDialog({
             type="button"
             onClick={onConfirmar}
             disabled={procesando}
-            className="min-h-11 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+            className="boton boton-peligro boton-chico"
           >
             {procesando ? "Procesando..." : textoConfirmar}
           </button>
