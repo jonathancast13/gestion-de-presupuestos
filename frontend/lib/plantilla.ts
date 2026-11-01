@@ -55,27 +55,75 @@ function lineasDeTexto(texto: string, anchoDisponible: number, anchoCaracter: nu
   return Math.ceil(limpio.length / porLinea);
 }
 
-/** Alto estimado de una fila de la tabla de partidas */
-export function estimarAltoFilaPartida(descripcion: string, anchoColumna = 253): number {
-  const lineas = lineasDeTexto(descripcion, anchoColumna, 4.6);
-  return Math.max(16, lineas * 11.2 + 5);
+/** Alto estimado de una fila de la tabla de partidas (columna DESCRIPCIÓN ~213) */
+export function estimarAltoFilaPartida(descripcion: string, anchoColumna = 213): number {
+  const lineas = lineasDeTexto(descripcion, anchoColumna, 4.3);
+  return Math.max(27, lineas * 13.5 + 6);
 }
 
-/** Alto estimado del bloque de condiciones a dos columnas */
-export function estimarAltoCondiciones(condiciones: string, anchoColumna = 220): number {
+/**
+ * Separa un párrafo de condiciones en título (hasta los dos puntos, como en la
+ * plantilla) y cuerpo del texto.
+ */
+export function partirTituloCondicion(parrafo: string): { titulo: string; cuerpo: string } {
+  const limpio = parrafo.trim();
+  const separador = limpio.indexOf(":");
+  if (separador > 0 && separador < 30) {
+    return { titulo: limpio.slice(0, separador + 1), cuerpo: limpio.slice(separador + 1).trim() };
+  }
+  return { titulo: "", cuerpo: limpio };
+}
+
+/** Alto estimado de un ítem numerado del bloque de condiciones */
+export function estimarAltoItemCondicion(parrafo: string, anchoColumna = 166): number {
+  const { titulo, cuerpo } = partirTituloCondicion(parrafo);
+  const lineas =
+    lineasDeTexto(titulo, anchoColumna, 4.4) + lineasDeTexto(cuerpo, anchoColumna, 4.2);
+  return lineas * 11.5 + 2.5;
+}
+
+/**
+ * Reparte párrafos en dos columnas contiguas, como en la plantilla: se llena
+ * la columna izquierda hasta el tope indicado y el resto pasa a la derecha.
+ */
+export function repartirEnDosColumnas<T>(
+  elementos: T[],
+  altoDe: (elemento: T) => number,
+  altoMaximoColumna: number
+): [T[], T[]] {
+  const primera: T[] = [];
+  const segunda: T[] = [];
+  let altoPrimera = 0;
+  for (const elemento of elementos) {
+    const alto = altoDe(elemento);
+    if (primera.length === 0 || altoPrimera + alto <= altoMaximoColumna) {
+      primera.push(elemento);
+      altoPrimera += alto;
+    } else {
+      segunda.push(elemento);
+    }
+  }
+  return [primera, segunda];
+}
+
+/** Alto estimado del bloque de condiciones (la columna más cargada) */
+export function estimarAltoCondiciones(
+  condiciones: string,
+  anchoIzquierda = 219,
+  anchoDerecha = 166
+): number {
   const parrafos = condiciones.split("\n").map((p) => p.trim()).filter(Boolean);
   if (parrafos.length === 0) return 60;
-  let lineas = 0;
-  // Reparto alterno en dos columnas: la altura es la de la más cargada
-  const columnas = [[], []] as string[][];
-  parrafos.forEach((parrafo, i) => columnas[i % 2].push(parrafo));
-  for (const columna of columnas) {
-    lineas = Math.max(
-      lineas,
-      columna.reduce((acc, parrafo) => acc + lineasDeTexto(parrafo, anchoColumna, 4.2), 0)
-    );
-  }
-  return Math.max(60, lineas * 11 + 14);
+  const altoIzquierda = (parrafo: string) => estimarAltoItemCondicion(parrafo, anchoIzquierda);
+  const altoDerecha = (parrafo: string) => estimarAltoItemCondicion(parrafo, anchoDerecha);
+  // La columna izquierda es más ancha, así que sus ítems son más bajos
+  const [izquierda, derecha] = repartirEnDosColumnas(parrafos, altoIzquierda, 88);
+  const suma = (columna: string[], altoDe: (p: string) => number) =>
+    columna.reduce((acc, parrafo) => acc + altoDe(parrafo), 0);
+  return Math.max(
+    60,
+    Math.max(suma(izquierda, altoIzquierda), suma(derecha, altoDerecha)) + 10
+  );
 }
 
 /**
@@ -116,8 +164,9 @@ export function cabeEnUnaPagina(parametros: {
     parametros;
   // A4 (841.28) - márgenes superior e inferior - borde del marco
   const ALTO_DISPONIBLE = 841.28 - 54 - 56 - 3;
-  const MARGEN_SEGURIDAD = 14;
-  const altoTotales = 12 + 3 * 17;
+  // Colchón para los bordes acumulados y las aproximaciones de alturas
+  const MARGEN_SEGURIDAD = 20;
+  const altoTotales = 8 + 3 * 15.5 + 4.5; // separación + 3 filas + bordes
   const alto =
     altoFijoCabecera +
     altoPartidas +
@@ -125,12 +174,4 @@ export function cabeEnUnaPagina(parametros: {
     altoCondiciones +
     (tieneBloquePago ? altoBloquePago : 0);
   return alto + MARGEN_SEGURIDAD <= ALTO_DISPONIBLE;
-}
-
-/** Reparte párrafos en dos columnas (alterno), como las condiciones del PDF */
-export function repartirEnDosColumnas<T>(elementos: T[]): [T[], T[]] {
-  const primera: T[] = [];
-  const segunda: T[] = [];
-  elementos.forEach((elemento, i) => (i % 2 === 0 ? primera : segunda).push(elemento));
-  return [primera, segunda];
 }

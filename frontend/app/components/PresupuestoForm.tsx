@@ -34,8 +34,9 @@ function lineaVacia(): ItemLinea {
   return { id: siguienteIdLinea(), descripcion: "", ud: "ud", cantidad: 1, precioUnitario: 0, iva: 21 };
 }
 
-// Calendario de pagos por defecto (50/25/25), editable en el formulario
-function formasPagoIniciales(): FormaPago[] {
+// Calendario de pagos por defecto (50/25/25): solo se añade cuando el cliente
+// lo pide, ya que las formas de pago son opcionales en el PDF
+function calendario502525(): FormaPago[] {
   return FORMAS_PAGO_POR_DEFECTO.map((forma) => ({
     id: siguienteIdForma(),
     concepto: forma.concepto,
@@ -76,8 +77,8 @@ export default function PresupuestoForm() {
   // Estado de las líneas (partidas de la reforma)
   const [items, setItems] = useState<ItemLinea[]>([lineaVacia()]);
 
-  // Estado del calendario de pagos (concepto + porcentaje del total)
-  const [formasPago, setFormasPago] = useState<FormaPago[]>(formasPagoIniciales);
+  // Estado del calendario de pagos (opcional: vacío si el cliente no lo pide)
+  const [formasPago, setFormasPago] = useState<FormaPago[]>([]);
 
   // Cargar el documento cuando se llega con ?editar=id
   useEffect(() => {
@@ -183,6 +184,11 @@ export default function PresupuestoForm() {
       ...prev,
       { id: siguienteIdForma(), concepto: "", porcentaje: 0, descripcion: "" },
     ]);
+  };
+
+  // Atajo con el calendario clásico (50/25/25) para quien lo quiera incluir
+  const agregarCalendario = () => {
+    setFormasPago(calendario502525());
   };
 
   const eliminarFormaPago = (id: string) => {
@@ -645,11 +651,12 @@ export default function PresupuestoForm() {
         </button>
       </div>
 
-      {/* Calendario de pagos (columnas "FORMA DE PAGO" del PDF) */}
+      {/* Calendario de pagos (columnas "FORMA DE PAGO" del PDF): opcional */}
       <div className="mb-7">
         <h2 className="seccion-titulo mb-1">Forma de pago</h2>
         <p className="mb-3 text-sm text-albanil">
-          Los importes se calculan sobre el total con IVA. Los porcentajes deben sumar 100 %.
+          Sección opcional: si no añades ninguna, el PDF no incluirá el desglose de pagos. Los
+          importes se calculan sobre el total con IVA y los porcentajes deben sumar 100 %.
         </p>
 
         <ul className="space-y-3">
@@ -715,6 +722,13 @@ export default function PresupuestoForm() {
           ))}
         </ul>
 
+        {formasPago.length === 0 && (
+          <p className="mb-3 text-sm text-albanil">
+            Sin formas de pago: el PDF no incluirá esta sección y el documento cabe en una sola
+            página.
+          </p>
+        )}
+
         {formasPago.length > 0 && (
           <p
             role="status"
@@ -727,9 +741,22 @@ export default function PresupuestoForm() {
           </p>
         )}
 
-        <button type="button" onClick={agregarFormaPago} className="boton boton-hueco boton-chico mt-3">
-          <Plus size={16} /> Añadir forma de pago
-        </button>
+        <div className="mt-3 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={agregarCalendario}
+            className="boton boton-hueco boton-chico"
+          >
+            Calendario 50/25/25
+          </button>
+          <button
+            type="button"
+            onClick={agregarFormaPago}
+            className="boton boton-hueco boton-chico"
+          >
+            <Plus size={16} /> Añadir forma de pago
+          </button>
+        </div>
       </div>
 
       {/* Condiciones del presupuesto (bloque a dos columnas del PDF) */}

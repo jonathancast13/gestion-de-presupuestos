@@ -17,8 +17,10 @@ import {
   estimarAltoBloquePago,
   estimarAltoCondiciones,
   estimarAltoFilaPartida,
+  estimarAltoItemCondicion,
   formatoFechaCorta,
   importeFormaPago,
+  partirTituloCondicion,
   repartirEnDosColumnas,
 } from "@/lib/plantilla";
 import type { ClienteData, FormaPago, ItemLinea, TipoDocumento } from "@/types";
@@ -55,23 +57,36 @@ Font.register({
   ],
 });
 
+// Sin guiones de partición al final de línea: el texto fluye como en la plantilla
+Font.registerHyphenationCallback((palabra) => [palabra]);
+
 const NEGRO = "#000000";
 const ORO = ORO_PLANTILLA; // #B99D4F, el oro exacto de la plantilla
 const BORDE = 1.5;
-const ANCHO_CUADRO = 552.28; // ancho interior del marco A4
+
+// Márgenes del marco de la plantilla (izq. 17,3 / der. 23,6 sobre A4)
+const MARGEN_IZQUIERDO = 17.3;
+const MARGEN_DERECHO = 23.6;
+const ANCHO_CUADRO = 595.28 - MARGEN_IZQUIERDO - MARGEN_DERECHO - 2 * BORDE;
 
 // Anchos de columna de la tabla de partidas (medidos sobre la plantilla)
-const COL_ITEM = 74;
-const COL_UD = 43;
-const COL_CANTIDAD = 67;
-const COL_PRECIO = 72;
-const COL_IMPORTE = 55;
+const COL_ITEM = 92;
+const COL_UD = 34;
+const COL_CANTIDAD = 57;
+const COL_PRECIO = 65;
+const COL_IMPORTE = 82;
+
+// Condiciones: la columna izquierda tiene ~219 de texto útil y se rellena
+// hasta el tope (como en la plantilla, que deja 3+1); la derecha ~166
+const ANCHO_CONDICION_IZQUIERDA = 219;
+const ALTO_MAXIMO_COLUMNA_CONDICIONES = 88;
 
 const estilos = StyleSheet.create({
   pagina: {
     paddingTop: 54,
     paddingBottom: 56,
-    paddingHorizontal: 20,
+    paddingLeft: MARGEN_IZQUIERDO,
+    paddingRight: MARGEN_DERECHO,
     backgroundColor: "#FFFFFF",
   },
   marco: {
@@ -80,17 +95,19 @@ const estilos = StyleSheet.create({
     borderStyle: "solid",
     fontFamily: "Archivo",
     color: NEGRO,
+    // El marco ocupa toda la altura de la página, como en la plantilla
+    flexGrow: 1,
   },
 
   // --- Cabecera gráfica (triángulos dorados + logo) -----------------------
-  grafica: { height: 106, position: "relative" },
+  grafica: { height: 107, position: "relative" },
   graficaSvg: { position: "absolute", top: 0, left: 0 },
   cajaLogo: {
     position: "absolute",
     left: 226,
     top: 0,
     width: 100,
-    height: 106,
+    height: 107,
     backgroundColor: NEGRO,
     borderWidth: BORDE,
     borderColor: ORO,
@@ -100,8 +117,8 @@ const estilos = StyleSheet.create({
   logo: { width: 69, height: 84 },
 
   // --- Franja bicolor con el nombre ---------------------------------------
-  franja: { flexDirection: "row", height: 34 },
-  franjaIzquierda: { width: 244, backgroundColor: NEGRO },
+  franja: { flexDirection: "row", height: 35 },
+  franjaIzquierda: { width: 246, backgroundColor: NEGRO },
   franjaDerecha: {
     flex: 1,
     backgroundColor: ORO,
@@ -114,8 +131,8 @@ const estilos = StyleSheet.create({
   // --- Fila de número/fecha + contacto ------------------------------------
   filaDocumento: { flexDirection: "row" },
   celdaEtiquetaDoc: {
-    width: 155,
-    height: 34,
+    width: 157,
+    height: 30,
     borderRightWidth: BORDE,
     borderBottomWidth: BORDE,
     borderColor: NEGRO,
@@ -126,8 +143,8 @@ const estilos = StyleSheet.create({
     fontSize: 10.5,
   },
   celdaFechaEtiqueta: {
-    width: 155,
-    height: 25,
+    width: 157,
+    height: 17,
     borderRightWidth: BORDE,
     borderColor: NEGRO,
     alignItems: "center",
@@ -137,8 +154,8 @@ const estilos = StyleSheet.create({
     fontSize: 10.5,
   },
   celdaValorDoc: {
-    width: 90,
-    height: 34,
+    width: 85,
+    height: 30,
     borderBottomWidth: BORDE,
     borderColor: NEGRO,
     alignItems: "center",
@@ -147,8 +164,8 @@ const estilos = StyleSheet.create({
     fontSize: 10,
   },
   celdaFechaValor: {
-    width: 90,
-    height: 25,
+    width: 85,
+    height: 17,
     alignItems: "center",
     justifyContent: "center",
     fontFamily: "Gelasio",
@@ -156,7 +173,7 @@ const estilos = StyleSheet.create({
   },
   celdaContacto: {
     flex: 1,
-    height: 59,
+    height: 47,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 8,
@@ -170,7 +187,7 @@ const estilos = StyleSheet.create({
 
   // --- Banda de título de sección -----------------------------------------
   bandaSeccion: {
-    height: 16,
+    height: 30,
     backgroundColor: ORO,
     alignItems: "center",
     justifyContent: "center",
@@ -187,7 +204,7 @@ const estilos = StyleSheet.create({
   // --- Filas de datos del cliente -----------------------------------------
   filaCliente: { flexDirection: "row", height: 16, borderBottomWidth: BORDE, borderColor: NEGRO },
   filaClienteEtiqueta: {
-    width: 150,
+    width: 93,
     borderRightWidth: BORDE,
     borderColor: NEGRO,
     paddingLeft: 4,
@@ -205,9 +222,9 @@ const estilos = StyleSheet.create({
   },
 
   // --- Fila de descripción del trabajo ------------------------------------
-  filaDescripcion: { flexDirection: "row", height: 26, borderBottomWidth: BORDE, borderColor: NEGRO },
+  filaDescripcion: { flexDirection: "row", height: 30, borderBottomWidth: BORDE, borderColor: NEGRO },
   filaDescripcionEtiqueta: {
-    width: 276,
+    width: 244,
     borderRightWidth: BORDE,
     borderColor: NEGRO,
     alignItems: "center",
@@ -240,8 +257,8 @@ const estilos = StyleSheet.create({
     borderRightWidth: BORDE,
     borderColor: NEGRO,
   },
-  textoCabecera: { fontFamily: "Gelasio", fontWeight: "bold", fontSize: 9 },
-  filaPartida: { flexDirection: "row", borderBottomWidth: BORDE, borderColor: NEGRO, minHeight: 16 },
+  textoCabecera: { fontFamily: "Gelasio", fontWeight: "bold", fontSize: 8 },
+  filaPartida: { flexDirection: "row", borderBottomWidth: BORDE, borderColor: NEGRO, minHeight: 27 },
   celdaPartida: {
     justifyContent: "center",
     borderRightWidth: BORDE,
@@ -249,7 +266,7 @@ const estilos = StyleSheet.create({
     paddingHorizontal: 3,
     paddingVertical: 2,
     fontFamily: "Archivo",
-    fontSize: 9,
+    fontSize: 8.5,
   },
   colItem: { width: COL_ITEM, alignItems: "center" },
   colDescripcion: { flex: 1, paddingHorizontal: 4 },
@@ -265,13 +282,19 @@ const estilos = StyleSheet.create({
 
   // --- Totales -------------------------------------------------------------
   zonaTotales: { flexDirection: "row", justifyContent: "flex-end", marginTop: 8 },
-  tablaTotales: { width: 390 },
-  filaTotal: {
-    flexDirection: "row",
-    height: 17,
-    borderTopWidth: BORDE,
+  tablaTotales: {
+    width: 396,
+    borderLeftWidth: BORDE,
+    borderRightWidth: BORDE,
     borderColor: NEGRO,
   },
+  filaTotal: {
+    flexDirection: "row",
+    height: 15.5,
+    borderColor: NEGRO,
+  },
+  filaTotalInicial: { borderTopWidth: BORDE },
+  filaTotalSeparadora: { borderBottomWidth: BORDE },
   totalEtiqueta: {
     width: 150,
     borderRightWidth: BORDE,
@@ -294,28 +317,48 @@ const estilos = StyleSheet.create({
   },
 
   // --- Condiciones ---------------------------------------------------------
-  condiciones: { flexDirection: "row", marginTop: 8, borderTopWidth: BORDE, borderColor: NEGRO },
+  condiciones: { flexDirection: "row", borderTopWidth: BORDE, borderColor: NEGRO },
   condicionesEtiqueta: {
-    width: 95,
+    width: 91,
     backgroundColor: ORO,
     alignItems: "center",
     justifyContent: "center",
     borderRightWidth: BORDE,
     borderColor: NEGRO,
     paddingVertical: 4,
-    paddingHorizontal: 4,
+    paddingHorizontal: 5,
   },
   condicionesEtiquetaTexto: {
     fontFamily: "Gelasio",
     fontWeight: "bold",
     fontSize: 9.5,
     textAlign: "center",
-    lineHeight: 1.3,
+    lineHeight: 1.35,
   },
-  condicionesCuerpo: { flex: 1, flexDirection: "row", paddingHorizontal: 7, paddingVertical: 6 },
-  condicionesColumna: { flex: 1, paddingRight: 6 },
-  condicionParrafo: { fontFamily: "Archivo", fontSize: 8.5, lineHeight: 1.35, marginBottom: 4 },
-  condicionTitulo: { fontFamily: "Archivo", fontWeight: "bold", fontSize: 8.5 },
+  condicionesCuerpo: { flex: 1, flexDirection: "row", paddingTop: 5, paddingBottom: 4 },
+  condicionesColumnaIzquierda: { flex: 1, paddingLeft: 25, paddingRight: 14 },
+  condicionesColumnaDerecha: { width: 200, paddingLeft: 26, paddingRight: 8 },
+  condicionItem: { flexDirection: "row", marginBottom: 2 },
+  condicionNumero: {
+    width: 13,
+    height: 13,
+    borderRadius: 6.5,
+    backgroundColor: NEGRO,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 6,
+    marginTop: 1.5,
+  },
+  condicionNumeroTexto: {
+    fontFamily: "Archivo",
+    fontWeight: "bold",
+    color: "#FFFFFF",
+    fontSize: 8,
+    lineHeight: 1.25,
+  },
+  condicionCuerpo: { flex: 1 },
+  condicionTitulo: { fontFamily: "Archivo", fontWeight: "bold", fontSize: 9, lineHeight: 1.28 },
+  condicionParrafo: { fontFamily: "Archivo", fontSize: 8.7, lineHeight: 1.32 },
 
   // --- Forma de pago (página 2 o al pie de la única página) ----------------
   bloquePago: { marginTop: 4 },
@@ -399,13 +442,13 @@ const estilos = StyleSheet.create({
 
 // Alturas fijas de la cabecera (para la estimación de una/dos páginas)
 const ALTO_FIJO_CABECERA =
-  106 + // gráfica
-  34 + // franja
-  34 +
-  25 + // fila número/fecha
-  16 + // banda "DATOS DEL CLIENTE"
+  107 + // gráfica
+  35 + // franja
+  30 +
+  17 + // fila número/fecha
+  30 + // banda "DATOS DEL CLIENTE"
   3 * 16 + // filas cliente
-  26 + // fila descripción
+  30 + // fila descripción
   16; // cabecera de la tabla de partidas
 
 interface DocumentoPDFProps {
@@ -424,11 +467,11 @@ function Cabecera() {
   return (
     <View>
       <View style={estilos.grafica}>
-        <Svg width={ANCHO_CUADRO} height={106} style={estilos.graficaSvg}>
-          <Rect x={0} y={0} width={ANCHO_CUADRO} height={106} fill={NEGRO} />
+        <Svg width={ANCHO_CUADRO} height={107} style={estilos.graficaSvg}>
+          <Rect x={0} y={0} width={ANCHO_CUADRO} height={107} fill={NEGRO} />
           <Rect x={4} y={0} width={476} height={2.5} fill={ORO} />
-          <Polygon points="5,2.5 140,2.5 252,104 122,104" fill={ORO} />
-          <Polygon points="345,2.5 483,2.5 530,105" fill={ORO} />
+          <Polygon points="5,2.5 140,2.5 253,106 123,106" fill={ORO} />
+          <Polygon points="345,2.5 483,2.5 531,106" fill={ORO} />
         </Svg>
         <View style={estilos.cajaLogo}>
           <Image src={LOGO_SRC} style={estilos.logo} />
@@ -562,7 +605,7 @@ function TablaPartidas({ items }: { items: ItemLinea[] }) {
   );
 }
 
-/** Base imponible, IVA (una fila por tipo) y total */
+/** Base imponible, IVA (una fila por tipo) y total, en una caja cerrada */
 function Totales({
   subtotal,
   total,
@@ -572,58 +615,68 @@ function Totales({
   total: number;
   desglose: Array<{ iva: number; importe: number }>;
 }) {
+  const filas: Array<{ etiqueta: string; valor: number; oro?: boolean }> = [
+    { etiqueta: "BASE IMPONIBLE", valor: subtotal },
+    ...desglose.map((entrada) => ({
+      etiqueta: `IVA (${entrada.iva}%)`,
+      valor: entrada.importe,
+    })),
+    { etiqueta: "TOTAL PRESUPUESTO", valor: total, oro: true },
+  ];
+
   return (
     <View style={estilos.zonaTotales}>
       <View style={estilos.tablaTotales}>
-        <View style={estilos.filaTotal}>
-          <Text style={estilos.totalEtiqueta}>BASE IMPONIBLE</Text>
-          <Text style={estilos.totalValor}>{formatearEuros(subtotal)}</Text>
-        </View>
-        {desglose.length === 1 ? (
-          <View style={estilos.filaTotal}>
-            <Text style={estilos.totalEtiqueta}>IVA ({desglose[0].iva}%)</Text>
-            <Text style={estilos.totalValor}>{formatearEuros(desglose[0].importe)}</Text>
+        {filas.map((fila, indice) => (
+          <View
+            key={fila.etiqueta}
+            style={[
+              estilos.filaTotal,
+              indice === 0 ? estilos.filaTotalInicial : undefined,
+              indice < filas.length - 1 ? estilos.filaTotalSeparadora : undefined,
+            ]}
+          >
+            <Text
+              style={[estilos.totalEtiqueta, fila.oro ? estilos.totalEtiquetaOro : undefined]}
+            >
+              {fila.etiqueta}
+            </Text>
+            <Text style={estilos.totalValor}>{formatearEuros(fila.valor)}</Text>
           </View>
-        ) : (
-          <>
-            {desglose.map((entrada) => (
-              <View key={entrada.iva} style={estilos.filaTotal}>
-                <Text style={estilos.totalEtiqueta}>IVA ({entrada.iva}%)</Text>
-                <Text style={estilos.totalValor}>{formatearEuros(entrada.importe)}</Text>
-              </View>
-            ))}
-          </>
-        )}
-        <View style={estilos.filaTotal}>
-          <Text style={[estilos.totalEtiqueta, estilos.totalEtiquetaOro]}>
-            TOTAL PRESUPUESTO
-          </Text>
-          <Text style={estilos.totalValor}>{formatearEuros(total)}</Text>
-        </View>
+        ))}
       </View>
     </View>
   );
 }
 
-/** "CONDICIONES DEL PRESUPUESTO": celda dorada + texto a dos columnas */
+/** "CONDICIONES DEL PRESUPUESTO": celda dorada + ítems numerados a dos columnas */
 function Condiciones({ condiciones }: { condiciones: string }) {
   const parrafos = condiciones.split("\n").map((p) => p.trim()).filter(Boolean);
-  const [columnaIzquierda, columnaDerecha] = repartirEnDosColumnas(parrafos);
+  const numerados = parrafos.map((parrafo, indice) => ({ parrafo, indice }));
+  const [columnaIzquierda, columnaDerecha] = repartirEnDosColumnas(
+    numerados,
+    ({ parrafo }) => estimarAltoItemCondicion(parrafo, ANCHO_CONDICION_IZQUIERDA),
+    ALTO_MAXIMO_COLUMNA_CONDICIONES
+  );
 
-  const renderParrafo = (parrafo: string, indice: number) => {
-    const separador = parrafo.indexOf(":");
-    if (separador > 0 && separador < 30) {
-      return (
-        <Text key={indice} style={estilos.condicionParrafo}>
-          <Text style={estilos.condicionTitulo}>{parrafo.slice(0, separador + 1)}</Text>
-          {parrafo.slice(separador + 1)}
-        </Text>
-      );
-    }
+  const renderCondicion = ({
+    parrafo,
+    indice,
+  }: {
+    parrafo: string;
+    indice: number;
+  }) => {
+    const { titulo, cuerpo } = partirTituloCondicion(parrafo);
     return (
-      <Text key={indice} style={estilos.condicionParrafo}>
-        {parrafo}
-      </Text>
+      <View key={parrafo} style={estilos.condicionItem}>
+        <View style={estilos.condicionNumero}>
+          <Text style={estilos.condicionNumeroTexto}>{indice + 1}</Text>
+        </View>
+        <View style={estilos.condicionCuerpo}>
+          {!!titulo && <Text style={estilos.condicionTitulo}>{titulo}</Text>}
+          <Text style={estilos.condicionParrafo}>{cuerpo}</Text>
+        </View>
+      </View>
     );
   };
 
@@ -633,11 +686,11 @@ function Condiciones({ condiciones }: { condiciones: string }) {
         <Text style={estilos.condicionesEtiquetaTexto}>CONDICIONES DEL PRESUPUESTO</Text>
       </View>
       <View style={estilos.condicionesCuerpo}>
-        <View style={estilos.condicionesColumna}>
-          {columnaIzquierda.map(renderParrafo)}
+        <View style={estilos.condicionesColumnaIzquierda}>
+          {columnaIzquierda.map(renderCondicion)}
         </View>
-        <View style={estilos.condicionesColumna}>
-          {columnaDerecha.map(renderParrafo)}
+        <View style={estilos.condicionesColumnaDerecha}>
+          {columnaDerecha.map(renderCondicion)}
         </View>
       </View>
     </View>
@@ -825,10 +878,9 @@ export default function DocumentoPDF({
           <View style={{ flexGrow: 1 }} />
           <Totales subtotal={subtotal} total={total} desglose={desglose} />
           <Condiciones condiciones={condiciones} />
-          {unaSoloPagina && (
+          {unaSoloPagina && tieneBloquePago && (
             <>
-              {tieneBloquePago && <BloquePago formasPago={formasValidas} total={total} />}
-              {!tieneBloquePago && <View style={{ flexGrow: 1 }} />}
+              <BloquePago formasPago={formasValidas} total={total} />
               <View style={estilos.bandaGracias}>
                 <Text style={estilos.textoGracias}>¡GRACIAS POR CONFIAR EN NOSOTROS!</Text>
               </View>

@@ -5,8 +5,10 @@ import {
   estimarAltoBloquePago,
   estimarAltoCondiciones,
   estimarAltoFilaPartida,
+  estimarAltoItemCondicion,
   formatoFechaCorta,
   importeFormaPago,
+  partirTituloCondicion,
   repartirEnDosColumnas,
   sumaPorcentajes,
 } from "./plantilla";
@@ -56,10 +58,10 @@ describe("suma de porcentajes", () => {
 });
 
 describe("estimación de alturas", () => {
-  it("una fila corta mide aproximadamente el mínimo (16 pt)", () => {
+  it("una fila corta mide aproximadamente el mínimo (27 pt)", () => {
     const alto = estimarAltoFilaPartida("Gotele");
-    expect(alto).toBeGreaterThanOrEqual(16);
-    expect(alto).toBeLessThan(20);
+    expect(alto).toBeGreaterThanOrEqual(27);
+    expect(alto).toBeLessThan(30);
   });
 
   it("una descripción larga ocupa más filas", () => {
@@ -85,10 +87,39 @@ describe("estimación de alturas", () => {
   });
 });
 
+describe("partirTituloCondicion", () => {
+  it("separa el título (hasta los dos puntos) del cuerpo", () => {
+    expect(partirTituloCondicion("Validez: 30 días naturales.")).toEqual({
+      titulo: "Validez:",
+      cuerpo: "30 días naturales.",
+    });
+  });
+
+  it("sin dos puntos va todo al cuerpo", () => {
+    expect(partirTituloCondicion("Los materiales están incluidos.")).toEqual({
+      titulo: "",
+      cuerpo: "Los materiales están incluidos.",
+    });
+  });
+});
+
+describe("estimarAltoItemCondicion", () => {
+  it("un ítem con título y cuerpo corto ocupa dos líneas", () => {
+    expect(estimarAltoItemCondicion("Validez: 30 días.")).toBeGreaterThanOrEqual(24);
+    expect(estimarAltoItemCondicion("Validez: 30 días.")).toBeLessThan(28);
+  });
+
+  it("un texto largo ocupa más alto", () => {
+    const corto = estimarAltoItemCondicion("Validez: 30 días.");
+    const largo = estimarAltoItemCondicion("Validez: " + "y".repeat(200));
+    expect(largo).toBeGreaterThan(corto);
+  });
+});
+
 describe("cabeEnUnaPagina", () => {
   const base = {
-    altoFijoCabecera: 305,
-    altoPartidas: 24,
+    altoFijoCabecera: 313,
+    altoPartidas: 27,
     altoCondiciones: 90,
     altoBloquePago: 0,
     tieneBloquePago: false,
@@ -102,10 +133,10 @@ describe("cabeEnUnaPagina", () => {
     expect(
       cabeEnUnaPagina({
         ...base,
-        altoPartidas: 16,
+        altoPartidas: 27,
         altoCondiciones: 60,
         tieneBloquePago: true,
-        altoBloquePago: 250,
+        altoBloquePago: 200,
       })
     ).toBe(true);
   });
@@ -120,13 +151,21 @@ describe("cabeEnUnaPagina", () => {
 });
 
 describe("repartirEnDosColumnas", () => {
-  it("reparte en alterno y respeta el orden", () => {
-    const [izquierda, derecha] = repartirEnDosColumnas([1, 2, 3, 4, 5]);
-    expect(izquierda).toEqual([1, 3, 5]);
-    expect(derecha).toEqual([2, 4]);
+  const altoFijo = () => 27;
+
+  it("llena la columna izquierda hasta el tope y el resto va a la derecha", () => {
+    const [izquierda, derecha] = repartirEnDosColumnas([1, 2, 3, 4, 5], altoFijo, 83);
+    expect(izquierda).toEqual([1, 2, 3]);
+    expect(derecha).toEqual([4, 5]);
+  });
+
+  it("un elemento que desborda el tope empieza la segunda columna", () => {
+    const [izquierda, derecha] = repartirEnDosColumnas([1, 2, 3], () => 50, 83);
+    expect(izquierda).toEqual([1]);
+    expect(derecha).toEqual([2, 3]);
   });
 
   it("con lista vacía devuelve dos columnas vacías", () => {
-    expect(repartirEnDosColumnas([])).toEqual([[], []]);
+    expect(repartirEnDosColumnas([], altoFijo, 83)).toEqual([[], []]);
   });
 });
