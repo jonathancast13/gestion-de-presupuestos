@@ -6,10 +6,15 @@ venv/
 
 # Base de datos local de desarrollo (los datos no se versionan)
 backend/instance/*.sqlite
+backend/instance/*.sqlite-wal
+backend/instance/*.sqlite-shm
 
 # Variables de entorno locales
 .env
 .env.local
+
+# Marcas de despliegue locales (Vercel CLI)
+.vercel/
 
 # --- Node / Frontend ---
 frontend/node_modules/

@@ -4,3 +4,6 @@ Flask-Cors==4.0.0
 Flask-Migrate==4.1.0
 python-dotenv==1.2.4
 PyJWT==2.15.1
+# Producción (Render): servidor WSGI y driver de PostgreSQL
+gunicorn==23.0.0
+psycopg[binary]==3.2.13

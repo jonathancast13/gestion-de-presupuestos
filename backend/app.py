@@ -7,7 +7,7 @@ las rutas en blueprints/.
 import os
 
 from dotenv import load_dotenv
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_migrate import Migrate
 
@@ -18,8 +18,22 @@ load_dotenv()
 
 app = Flask(__name__)
 
+
+def _database_uri() -> str:
+    """URI de la base de datos.
+
+    Render inyecta `DATABASE_URL` con el esquema antiguo `postgres://`, que
+    SQLAlchemy 2 ya no admite; se convierte a `postgresql://`. Si defines
+    `DATABASE_URI` a mano, tiene prioridad (así se puede usar SQLite en local).
+    """
+    uri = os.getenv('DATABASE_URI') or os.getenv('DATABASE_URL') or 'sqlite:///database.sqlite'
+    if uri.startswith('postgres://'):
+        uri = 'postgresql://' + uri[len('postgres://'):]
+    return uri
+
+
 # Configuración usando variables de entorno con valores por defecto de respaldo
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URI', 'sqlite:///database.sqlite')
+app.config['SQLALCHEMY_DATABASE_URI'] = _database_uri()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # --- Autenticación (JWT) -----------------------------------------------------
@@ -57,8 +71,24 @@ registrar_manejadores_errores(app)
 app.register_blueprint(bp_auth)
 app.register_blueprint(bp_documentos)
 
+
+@app.route('/api/salud', methods=['GET'])
+def salud():
+    """Health check público para el uptime monitor de Render (no requiere token)."""
+    return jsonify({'estado': 'ok'}), 200
+
 with app.app_context():
     db.create_all()
+    # Si create_all() acaba de crear el esquema desde cero (BD nueva, p. ej. el
+    # PostgreSQL recién creado en Render), sellamos la revisión actual de Alembic:
+    # así `flask db upgrade` en el arranque no intenta repetir columnas ya
+    # existentes y las migraciones futuras parten del punto correcto.
+    from sqlalchemy import inspect as _inspect
+
+    if not _inspect(db.engine).has_table('alembic_version'):
+        from flask_migrate import stamp as _stamp
+
+        _stamp(revision='head')
     # Los backrefs (p.ej. Documento.cliente) solo existen tras configurar los
     # mappers: sin esto, el primer GET /api/documentos de un proceso recién
     # arrancado fallaría con AttributeError.
