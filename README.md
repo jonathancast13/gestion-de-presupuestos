@@ -8,9 +8,6 @@ enviarlo al cliente directamente por WhatsApp.
 Todo está protegido por un **login con JWT** y pensado para usarse tanto desde
 el escritorio como desde el móvil en obra.
 
-<p align="center">
-  <img src="docs/ejemplo-presupuesto.png" alt="Ejemplo de presupuesto generado en PDF" width="760">
-</p>
 
 ---
 
