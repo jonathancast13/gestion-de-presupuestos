@@ -47,14 +47,6 @@ documentos que se pierden entre carpetas.
 
 ## Arquitectura
 
-```mermaid
-flowchart LR
-    A["Navegador<br/>(escritorio o móvil)"] -->|HTTPS| B["Vercel<br/>Next.js 16"]
-    B -->|API REST (JSON + JWT)| C["Render<br/>Flask + gunicorn"]
-    C -->|SQLAlchemy| D[("PostgreSQL<br/>en Render")]
-    B -.->|genera el PDF| A
-```
-
 - **Frontend en Vercel**: aplicación Next.js servida por CDN con HTTPS.
 - **Backend en Render**: API Flask detrás de gunicorn, con health check público.
 - **Base de datos PostgreSQL** gestionada, con copias de seguridad automáticas.
